@@ -1,6 +1,4 @@
-[![Build Status](https://travis-ci.org/rust-bitcoin/rust-secp256k1.png?branch=master)](https://travis-ci.org/rust-bitcoin/rust-secp256k1)
-
-[Full documentation](https://docs.rs/secp256k1/)
+[Full documentation](https://docs.rs/secp256k1-grs/)
 
 ## rust-secp256k1
 
@@ -47,4 +45,3 @@ use a trivially-broken but fuzzer-accessible signature scheme, compile with
 `--cfg=fuzzing` in your `RUSTFLAGS` variable.
 
 Note that `cargo hfuzz` sets this config flag automatically.
-

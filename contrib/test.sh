@@ -2,10 +2,10 @@
 
 set -ex
 
-FEATURES="bitcoin_hashes global-context lowmemory rand recovery serde std alloc"
+FEATURES="groestlcoin_hashes global-context lowmemory rand recovery serde std alloc"
 # These features are typically enabled along with the 'std' feature, so we test
 # them together with 'std'.
-STD_FEATURES="rand-std bitcoin-hashes-std"
+STD_FEATURES="rand-std groestlcoin-hashes-std"
 
 cargo --version
 rustc --version
@@ -45,7 +45,7 @@ if [ "$DO_FEATURE_MATRIX" = true ]; then
         cargo build --all --no-default-features --features="std,$feature"
         cargo test --all --no-default-features --features="std,$feature"
     done
-    # Other combos 
+    # Other combos
     RUSTFLAGS='--cfg=fuzzing' RUSTDOCFLAGS='--cfg=fuzzing' cargo test --all
     RUSTFLAGS='--cfg=fuzzing' RUSTDOCFLAGS='--cfg=fuzzing' cargo test --all --features="$FEATURES"
     cargo test --all --features="rand serde"
