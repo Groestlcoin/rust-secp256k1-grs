@@ -118,7 +118,7 @@ impl SecretKey {
     ///
     /// ```
     /// # #[cfg(feature = "std")] {
-    /// let key = secp256k1::ONE_KEY;
+    /// let key = secp256k1_grs::ONE_KEY;
     ///
     /// // Normal debug hides value (`Display` is not implemented for `SecretKey`).
     /// // E.g., `format!("{:?}", key)` prints "SecretKey(#2518682f7819fb2d)".
