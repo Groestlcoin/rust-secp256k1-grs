@@ -1,5 +1,5 @@
 [package]
-name = "secp256k1"
+name = "secp256k1-grs"
 version = "0.24.0"
 authors = ["Groestlcoin Developers <groestlcoin@gmail.com>"]
 license = "CC0-1.0"

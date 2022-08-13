@@ -42,9 +42,9 @@
 //!
 //! ```rust
 //! # #[cfg(all(feature = "std", feature="rand-std", feature="groestlcoin_hashes"))] {
-//! use secp256k1::rand::rngs::OsRng;
-//! use secp256k1::{Secp256k1, Message};
-//! use secp256k1::hashes::sha256;
+//! use secp256k1_grs::rand::rngs::OsRng;
+//! use secp256k1_grs::{Secp256k1, Message};
+//! use secp256k1_grs::hashes::sha256;
 //!
 //! let secp = Secp256k1::new();
 //! let (secret_key, public_key) = secp.generate_keypair(&mut OsRng);
@@ -59,9 +59,9 @@
 //!
 //! ```rust
 //! # #[cfg(all(feature="global-context", feature = "std", feature="rand-std", features = "groestlcoin_hashes"))] {
-//! use secp256k1::rand::thread_rng;
-//! use secp256k1::{generate_keypair, Message};
-//! use secp256k1::hashes::sha256;
+//! use secp256k1_grs::rand::thread_rng;
+//! use secp256k1_grs::{generate_keypair, Message};
+//! use secp256k1_grs::hashes::sha256;
 //!
 //! let (secret_key, public_key) = generate_keypair(&mut thread_rng());
 //! let message = Message::from_hashed_data::<sha256::Hash>("Hello World!".as_bytes());
@@ -77,7 +77,7 @@
 //!
 //! ```rust
 //! # #[cfg(any(feature = "alloc", features = "std"))] {
-//! use secp256k1::{Secp256k1, Message, SecretKey, PublicKey};
+//! use secp256k1_grs::{Secp256k1, Message, SecretKey, PublicKey};
 //!
 //! let secp = Secp256k1::new();
 //! let secret_key = SecretKey::from_slice(&[0xcd; 32]).expect("32 bytes, within curve order");
@@ -95,7 +95,7 @@
 //!
 //! ```rust
 //! # #[cfg(any(feature = "alloc", feature = "std"))] {
-//! use secp256k1::{Secp256k1, Message, ecdsa, PublicKey};
+//! use secp256k1_grs::{Secp256k1, Message, ecdsa, PublicKey};
 //!
 //! let secp = Secp256k1::verification_only();
 //!
@@ -286,7 +286,7 @@ impl Message {
     /// ```rust
     /// extern crate groestlcoin_hashes;
     /// # extern crate secp256k1;
-    /// use secp256k1::Message;
+    /// use secp256k1_grs::Message;
     /// use groestlcoin_hashes::sha256;
     /// use groestlcoin_hashes::Hash;
     ///

@@ -30,9 +30,9 @@ const SHARED_SECRET_SIZE: usize = constants::SECRET_KEY_SIZE;
 ///
 /// ```
 /// # #[cfg(all(feature = "std", feature = "rand-std"))] {
-/// # use secp256k1::Secp256k1;
-/// # use secp256k1::ecdh::SharedSecret;
-/// # use secp256k1::rand::thread_rng;
+/// # use secp256k1_grs::Secp256k1;
+/// # use secp256k1_grs::ecdh::SharedSecret;
+/// # use secp256k1_grs::rand::thread_rng;
 /// let s = Secp256k1::new();
 /// let (sk1, pk1) = s.generate_keypair(&mut thread_rng());
 /// let (sk2, pk2) = s.generate_keypair(&mut thread_rng());
@@ -128,9 +128,9 @@ impl AsRef<[u8]> for SharedSecret {
 /// # Examples
 /// ```
 /// # #[cfg(all(feature = "groestlcoin_hashes", feature = "rand-std", feature = "std"))] {
-/// # use secp256k1::{ecdh, Secp256k1, PublicKey, SecretKey};
-/// # use secp256k1::hashes::{Hash, sha512};
-/// # use secp256k1::rand::thread_rng;
+/// # use secp256k1_grs::{ecdh, Secp256k1, PublicKey, SecretKey};
+/// # use secp256k1_grs::hashes::{Hash, sha512};
+/// # use secp256k1_grs::rand::thread_rng;
 ///
 /// let s = Secp256k1::new();
 /// let (sk1, pk1) = s.generate_keypair(&mut thread_rng());

@@ -65,11 +65,11 @@ use core::fmt::{self, write, Write};
 use core::intrinsics;
 use core::panic::PanicInfo;
 
-use secp256k1::ecdh::{self, SharedSecret};
-use secp256k1::ffi::types::AlignedType;
-use secp256k1::rand::{self, RngCore};
-use secp256k1::serde::Serialize;
-use secp256k1::*;
+use secp256k1_grs::ecdh::{self, SharedSecret};
+use secp256k1_grs::ffi::types::AlignedType;
+use secp256k1_grs::rand::{self, RngCore};
+use secp256k1_grs::serde::Serialize;
+use secp256k1_grs::*;
 
 use serde_cbor::de;
 use serde_cbor::ser::SliceWrite;

@@ -5,9 +5,9 @@ extern crate bincode;
 extern crate cbor;
 extern crate secp256k1;
 
-use secp256k1::{PublicKey, SecretKey, XOnlyPublicKey};
+use secp256k1_grs::{PublicKey, SecretKey, XOnlyPublicKey};
 #[cfg(feature = "global-context")]
-use secp256k1::{Secp256k1, KeyPair};
+use secp256k1_grs::{Secp256k1, KeyPair};
 
 // Arbitrary key data.
 

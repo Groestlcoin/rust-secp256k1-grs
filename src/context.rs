@@ -31,8 +31,8 @@ pub mod global {
     ///
     /// ```
     /// # #[cfg(all(feature = "global-context", feature = "rand-std"))] {
-    /// use secp256k1::{PublicKey, SECP256K1};
-    /// use secp256k1::rand::thread_rng;
+    /// use secp256k1_grs::{PublicKey, SECP256K1};
+    /// use secp256k1_grs::rand::thread_rng;
     /// let _ = SECP256K1.generate_keypair(&mut thread_rng());
     /// # }
     /// ```
@@ -178,8 +178,8 @@ mod alloc_only {
         /// If `rand-std` feature is not enabled please consider randomizing the context as follows:
         /// ```
         /// # #[cfg(all(feature = "std", feature = "rand-std"))] {
-        /// # use secp256k1::Secp256k1;
-        /// # use secp256k1::rand::{thread_rng, RngCore};
+        /// # use secp256k1_grs::Secp256k1;
+        /// # use secp256k1_grs::rand::{thread_rng, RngCore};
         /// let mut ctx = Secp256k1::new();
         /// # let mut rng = thread_rng();
         /// # let mut seed = [0u8; 32];

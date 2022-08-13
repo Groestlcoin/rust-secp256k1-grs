@@ -48,7 +48,7 @@ use crate::Scalar;
 ///
 /// ```
 /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-/// use secp256k1::{rand, Secp256k1, SecretKey};
+/// use secp256k1_grs::{rand, Secp256k1, SecretKey};
 ///
 /// let secp = Secp256k1::new();
 /// let secret_key = SecretKey::new(&mut rand::thread_rng());
@@ -91,7 +91,7 @@ pub const ONE_KEY: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
 ///
 /// ```
 /// # #[cfg(any(feature =  "alloc", feature = "std"))] {
-/// use secp256k1::{SecretKey, Secp256k1, PublicKey};
+/// use secp256k1_grs::{SecretKey, Secp256k1, PublicKey};
 ///
 /// let secp = Secp256k1::new();
 /// let secret_key = SecretKey::from_slice(&[0xcd; 32]).expect("32 bytes, within curve order");
@@ -153,7 +153,7 @@ impl SecretKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{rand, SecretKey};
+    /// use secp256k1_grs::{rand, SecretKey};
     /// let secret_key = SecretKey::new(&mut rand::thread_rng());
     /// # }
     /// ```
@@ -179,7 +179,7 @@ impl SecretKey {
     /// # Examples
     ///
     /// ```
-    /// use secp256k1::SecretKey;
+    /// use secp256k1_grs::SecretKey;
     /// let sk = SecretKey::from_slice(&[0xcd; 32]).expect("32 bytes, within curve order");
     /// ```
     #[inline]
@@ -207,7 +207,7 @@ impl SecretKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{rand, Secp256k1, SecretKey, KeyPair};
+    /// use secp256k1_grs::{rand, Secp256k1, SecretKey, KeyPair};
     ///
     /// let secp = Secp256k1::new();
     /// let key_pair = KeyPair::new(&secp, &mut rand::thread_rng());
@@ -406,7 +406,7 @@ impl PublicKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{rand, Secp256k1, SecretKey, PublicKey};
+    /// use secp256k1_grs::{rand, Secp256k1, SecretKey, PublicKey};
     ///
     /// let secp = Secp256k1::new();
     /// let secret_key = SecretKey::new(&mut rand::thread_rng());
@@ -460,7 +460,7 @@ impl PublicKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{rand, Secp256k1, PublicKey, KeyPair};
+    /// use secp256k1_grs::{rand, Secp256k1, PublicKey, KeyPair};
     ///
     /// let secp = Secp256k1::new();
     /// let key_pair = KeyPair::new(&secp, &mut rand::thread_rng());
@@ -628,7 +628,7 @@ impl PublicKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "rand-std", any(feature =  "alloc", feature = "std")))] {
-    /// use secp256k1::{rand, Secp256k1};
+    /// use secp256k1_grs::{rand, Secp256k1};
     ///
     /// let secp = Secp256k1::new();
     /// let mut rng = rand::thread_rng();
@@ -654,7 +654,7 @@ impl PublicKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{rand, Secp256k1, PublicKey};
+    /// use secp256k1_grs::{rand, Secp256k1, PublicKey};
     ///
     /// let secp = Secp256k1::new();
     /// let mut rng = rand::thread_rng();
@@ -796,7 +796,7 @@ impl Ord for PublicKey {
 ///
 /// ```
 /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-/// use secp256k1::{rand, KeyPair, Secp256k1};
+/// use secp256k1_grs::{rand, KeyPair, Secp256k1};
 ///
 /// let secp = Secp256k1::new();
 /// let (secret_key, public_key) = secp.generate_keypair(&mut rand::thread_rng());
@@ -896,7 +896,7 @@ impl KeyPair {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{rand, Secp256k1, SecretKey, KeyPair};
+    /// use secp256k1_grs::{rand, Secp256k1, SecretKey, KeyPair};
     ///
     /// let secp = Secp256k1::new();
     /// let key_pair = KeyPair::new(&secp, &mut rand::thread_rng());
@@ -961,8 +961,8 @@ impl KeyPair {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{Secp256k1, KeyPair, Scalar};
-    /// use secp256k1::rand::{RngCore, thread_rng};
+    /// use secp256k1_grs::{Secp256k1, KeyPair, Scalar};
+    /// use secp256k1_grs::rand::{RngCore, thread_rng};
     ///
     /// let secp = Secp256k1::new();
     /// let tweak = Scalar::random();
@@ -1117,7 +1117,7 @@ impl<'de> serde::Deserialize<'de> for KeyPair {
 ///
 /// ```
 /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-/// use secp256k1::{rand, Secp256k1, KeyPair, XOnlyPublicKey};
+/// use secp256k1_grs::{rand, Secp256k1, KeyPair, XOnlyPublicKey};
 ///
 /// let secp = Secp256k1::new();
 /// let key_pair = KeyPair::new(&secp, &mut rand::thread_rng());
@@ -1261,8 +1261,8 @@ impl XOnlyPublicKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{Secp256k1, KeyPair, Scalar, XOnlyPublicKey};
-    /// use secp256k1::rand::{RngCore, thread_rng};
+    /// use secp256k1_grs::{Secp256k1, KeyPair, Scalar, XOnlyPublicKey};
+    /// use secp256k1_grs::rand::{RngCore, thread_rng};
     ///
     /// let secp = Secp256k1::new();
     /// let tweak = Scalar::random();
@@ -1322,8 +1322,8 @@ impl XOnlyPublicKey {
     ///
     /// ```
     /// # #[cfg(all(feature = "std", feature =  "rand-std"))] {
-    /// use secp256k1::{Secp256k1, KeyPair, Scalar};
-    /// use secp256k1::rand::{thread_rng, RngCore};
+    /// use secp256k1_grs::{Secp256k1, KeyPair, Scalar};
+    /// use secp256k1_grs::rand::{thread_rng, RngCore};
     ///
     /// let secp = Secp256k1::new();
     /// let tweak = Scalar::random();

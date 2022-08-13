@@ -3,7 +3,7 @@ extern crate groestlcoin_hashes;
 extern crate secp256k1;
 
 use groestlcoin_hashes::{sha256, Hash};
-use secp256k1::{Error, Message, PublicKey, Secp256k1, SecretKey, Signing, Verification, ecdsa};
+use secp256k1_grs::{Error, Message, PublicKey, Secp256k1, SecretKey, Signing, Verification, ecdsa};
 
 fn recover<C: Verification>(secp: &Secp256k1<C>,msg: &[u8],sig: [u8; 64],recovery_id: u8) -> Result<PublicKey, Error> {
     let msg = sha256::Hash::hash(msg);

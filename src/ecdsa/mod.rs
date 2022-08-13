@@ -374,8 +374,8 @@ impl<C: Verification> Secp256k1<C> {
     ///
     /// ```rust
     /// # #[cfg(all(feature = "std", feature = "rand-std"))] {
-    /// # use secp256k1::rand::thread_rng;
-    /// # use secp256k1::{Secp256k1, Message, Error};
+    /// # use secp256k1_grs::rand::thread_rng;
+    /// # use secp256k1_grs::{Secp256k1, Message, Error};
     /// #
     /// # let secp = Secp256k1::new();
     /// # let (secret_key, public_key) = secp.generate_keypair(&mut thread_rng());
@@ -402,8 +402,8 @@ impl<C: Verification> Secp256k1<C> {
     ///
     /// ```rust
     /// # #[cfg(all(feature = "std", feature = "rand-std"))] {
-    /// # use secp256k1::rand::thread_rng;
-    /// # use secp256k1::{Secp256k1, Message, Error};
+    /// # use secp256k1_grs::rand::thread_rng;
+    /// # use secp256k1_grs::{Secp256k1, Message, Error};
     /// #
     /// # let secp = Secp256k1::new();
     /// # let (secret_key, public_key) = secp.generate_keypair(&mut thread_rng());

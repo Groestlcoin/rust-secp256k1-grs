@@ -152,9 +152,9 @@ impl KeyPair {
     ///
     /// ```
     /// # #[cfg(feature = "std")] {
-    /// use secp256k1::ONE_KEY;
-    /// use secp256k1::KeyPair;
-    /// use secp256k1::Secp256k1;
+    /// use secp256k1_grs::ONE_KEY;
+    /// use secp256k1_grs::KeyPair;
+    /// use secp256k1_grs::Secp256k1;
     ///
     /// let secp = Secp256k1::new();
     /// let key = ONE_KEY;
@@ -190,8 +190,8 @@ impl SharedSecret {
     /// # #[cfg(not(fuzzing))]
     /// # #[cfg(feature = "std")] {
     /// # use std::str::FromStr;
-    /// # use secp256k1::{SecretKey, PublicKey};
-    /// use secp256k1::ecdh::SharedSecret;
+    /// # use secp256k1_grs::{SecretKey, PublicKey};
+    /// use secp256k1_grs::ecdh::SharedSecret;
     ///
     /// # let pk = PublicKey::from_slice(&[3, 23, 183, 225, 206, 31, 159, 148, 195, 42, 67, 115, 146, 41, 248, 140, 11, 3, 51, 41, 111, 180, 110, 143, 114, 134, 88, 73, 198, 174, 52, 184, 78]).expect("hard coded slice should parse correctly");
     /// # let sk = SecretKey::from_str("57f0148f94d13095cfda539d0da0d1541304b678d8b36e243980aab4e1b7cead").unwrap();
