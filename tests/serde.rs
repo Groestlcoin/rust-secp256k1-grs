@@ -3,7 +3,7 @@
 extern crate bincode;
 #[cfg(target_arch = "x86_64")]
 extern crate cbor;
-extern crate secp256k1;
+extern crate secp256k1_grs;
 
 use secp256k1_grs::{PublicKey, SecretKey, XOnlyPublicKey};
 #[cfg(feature = "global-context")]

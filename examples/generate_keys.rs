@@ -1,4 +1,4 @@
-extern crate secp256k1;
+extern crate secp256k1_grs;
 
 use secp256k1_grs::rand::thread_rng;
 use secp256k1_grs::{PublicKey, Secp256k1, SecretKey};

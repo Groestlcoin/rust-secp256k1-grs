@@ -285,7 +285,7 @@ impl Message {
     /// `groestlcoin_hashes` to be enabled.
     /// ```rust
     /// extern crate groestlcoin_hashes;
-    /// # extern crate secp256k1;
+    /// # extern crate secp256k1_grs;
     /// use secp256k1_grs::Message;
     /// use groestlcoin_hashes::sha256;
     /// use groestlcoin_hashes::Hash;

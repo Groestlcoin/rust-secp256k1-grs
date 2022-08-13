@@ -46,7 +46,7 @@
 #![feature(alloc_error_handler)]
 #![no_std]
 extern crate libc;
-extern crate secp256k1;
+extern crate secp256k1_grs;
 extern crate serde_cbor;
 
 #[cfg(feature = "alloc")]

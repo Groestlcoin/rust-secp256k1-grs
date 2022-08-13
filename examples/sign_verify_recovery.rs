@@ -1,6 +1,6 @@
 
 extern crate groestlcoin_hashes;
-extern crate secp256k1;
+extern crate secp256k1_grs;
 
 use groestlcoin_hashes::{sha256, Hash};
 use secp256k1_grs::{Error, Message, PublicKey, Secp256k1, SecretKey, Signing, Verification, ecdsa};
