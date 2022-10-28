@@ -1646,7 +1646,7 @@ pub mod serde_keypair {
 #[cfg(test)]
 #[allow(unused_imports)]
 mod test {
-    use bitcoin_hashes::hex::ToHex;
+    use groestlcoin_hashes::hex::ToHex;
     use super::*;
 
     use core::str::FromStr;
