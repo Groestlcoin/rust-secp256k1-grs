@@ -37,16 +37,8 @@ pub const COMPACT_SIGNATURE_SIZE: usize = 64;
 /// The size of a Schnorr signature.
 pub const SCHNORR_SIGNATURE_SIZE: usize = 64;
 
-/// The size of a Schnorr signature.
-#[deprecated(since = "0.22.0", note = "Use SCHNORR_SIGNATURE_SIZE instead.")]
-pub const SCHNORRSIG_SIGNATURE_SIZE: usize = SCHNORR_SIGNATURE_SIZE;
-
 /// The size of a Schnorr public key.
 pub const SCHNORR_PUBLIC_KEY_SIZE: usize = 32;
-
-/// The size of a Schnorr public key.
-#[deprecated(since = "0.22.0", note = "Use SCHNORR_PUBLIC_KEY_SIZE instead.")]
-pub const SCHNORRSIG_PUBLIC_KEY_SIZE: usize = SCHNORR_PUBLIC_KEY_SIZE;
 
 /// The size of a key pair.
 pub const KEY_PAIR_SIZE: usize = 96;
@@ -83,4 +75,10 @@ pub const GENERATOR_Y: [u8; 32] = [
     0x9c, 0x47, 0xd0, 0x8f, 0xfb, 0x10, 0xd4, 0xb8
 ];
 
+/// The value zero as an array of bytes.
+pub const ZERO: [u8; 32] = [0; 32];
 
+/// The value one as big-endian array of bytes.
+pub const ONE: [u8; 32] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+];

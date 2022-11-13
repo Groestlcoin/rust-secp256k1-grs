@@ -25,6 +25,9 @@ use crate::Error::{self, InvalidPublicKey, InvalidPublicKeySum, InvalidSecretKey
 use crate::ffi::{self, CPtr, impl_array_newtype};
 use crate::ffi::types::c_uint;
 
+#[cfg(feature = "bitcoin_hashes")]
+use crate::{hashes, ThirtyTwoByteHash};
+
 #[cfg(feature = "serde")]
 use serde::ser::SerializeTuple;
 
@@ -72,10 +75,7 @@ impl str::FromStr for SecretKey {
 }
 
 /// The number 1 encoded as a secret key.
-pub const ONE_KEY: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 1]);
+pub const ONE_KEY: SecretKey = SecretKey(constants::ONE);
 
 /// A Secp256k1 public key, used for verification of signatures.
 ///
@@ -100,8 +100,8 @@ pub const ONE_KEY: SecretKey = SecretKey([0, 0, 0, 0, 0, 0, 0, 0,
 /// ```
 /// [`bincode`]: https://docs.rs/bincode
 /// [`cbor`]: https://docs.rs/cbor
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-#[cfg_attr(fuzzing, derive(PartialOrd, Ord))]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(fuzzing, derive(PartialOrd, Ord, PartialEq, Eq, Hash))]
 #[repr(transparent)]
 pub struct PublicKey(ffi::PublicKey);
 
@@ -228,17 +228,35 @@ impl SecretKey {
         SecretKey(sk)
     }
 
+    /// Constructs a [`SecretKey`] by hashing `data` with hash algorithm `H`.
+    ///
+    /// Requires the feature `bitcoin_hashes` to be enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[cfg(feature="bitcoin_hashes")] {
+    /// use secp256k1::hashes::{sha256, Hash};
+    /// use secp256k1::SecretKey;
+    ///
+    /// let sk1 = SecretKey::from_hashed_data::<sha256::Hash>("Hello world!".as_bytes());
+    /// // is equivalent to
+    /// let sk2 = SecretKey::from(sha256::Hash::hash("Hello world!".as_bytes()));
+    ///
+    /// assert_eq!(sk1, sk2);
+    /// # }
+    /// ```
+    #[cfg(feature = "bitcoin_hashes")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "bitcoin_hashes")))]
+    #[inline]
+    pub fn from_hashed_data<H: ThirtyTwoByteHash + hashes::Hash>(data: &[u8]) -> Self {
+        <H as hashes::Hash>::hash(data).into()
+    }
+
     /// Returns the secret key as a byte value.
     #[inline]
     pub fn secret_bytes(&self) -> [u8; constants::SECRET_KEY_SIZE] {
         self.0
-    }
-
-    /// Negates the secret key.
-    #[inline]
-    #[deprecated(since = "0.23.0", note = "Use negate instead")]
-    pub fn negate_assign(&mut self) {
-        *self = self.negate()
     }
 
     /// Negates the secret key.
@@ -253,18 +271,6 @@ impl SecretKey {
             debug_assert_eq!(res, 1);
         }
         self
-    }
-
-    /// Adds one secret key to another, modulo the curve order.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the resulting key would be invalid.
-    #[inline]
-    #[deprecated(since = "0.23.0", note = "Use add_tweak instead")]
-    pub fn add_assign(&mut self, other: &Scalar) -> Result<(), Error> {
-        *self = self.add_tweak(other)?;
-        Ok(())
     }
 
     /// Tweaks a [`SecretKey`] by adding `tweak` modulo the curve order.
@@ -286,15 +292,6 @@ impl SecretKey {
                 Ok(self)
             }
         }
-    }
-
-    /// Multiplies one secret key by another, modulo the curve order. Will
-    /// return an error if the resulting key would be invalid.
-    #[inline]
-    #[deprecated(since = "0.23.0", note = "Use mul_tweak instead")]
-    pub fn mul_assign(&mut self, other: &Scalar) -> Result<(), Error> {
-        *self = self.mul_tweak(other)?;
-        Ok(())
     }
 
     /// Tweaks a [`SecretKey`] by multiplying by `tweak` modulo the curve order.
@@ -349,6 +346,14 @@ impl SecretKey {
     pub fn x_only_public_key<C: Signing>(&self, secp: &Secp256k1<C>) -> (XOnlyPublicKey, Parity) {
         let kp = self.keypair(secp);
         XOnlyPublicKey::from_keypair(&kp)
+    }
+}
+
+#[cfg(feature = "bitcoin_hashes")]
+impl<T: ThirtyTwoByteHash> From<T> for SecretKey {
+    /// Converts a 32-byte hash directly to a secret key without error paths.
+    fn from(t: T) -> SecretKey {
+        SecretKey::from_slice(&t.into_32()).expect("failed to create secret key")
     }
 }
 
@@ -528,13 +533,6 @@ impl PublicKey {
         debug_assert_eq!(ret_len, ret.len());
     }
 
-    /// Negates the public key in place.
-    #[inline]
-    #[deprecated(since = "0.23.0", note = "Use negate instead")]
-    pub fn negate_assign<C: Verification>(&mut self, secp: &Secp256k1<C>) {
-        *self = self.negate(secp)
-    }
-
     /// Negates the public key.
     #[inline]
     #[must_use = "you forgot to use the negated public key"]
@@ -544,22 +542,6 @@ impl PublicKey {
             debug_assert_eq!(res, 1);
         }
         self
-    }
-
-    /// Adds `other * G` to `self` in place.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the resulting key would be invalid.
-    #[inline]
-    #[deprecated(since = "0.23.0", note = "Use add_exp_tweak instead")]
-    pub fn add_exp_assign<C: Verification>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        other: &Scalar
-    ) -> Result<(), Error> {
-        *self = self.add_exp_tweak(secp, other)?;
-        Ok(())
     }
 
     /// Tweaks a [`PublicKey`] by adding `tweak * G` modulo the curve order.
@@ -580,22 +562,6 @@ impl PublicKey {
                 Err(Error::InvalidTweak)
             }
         }
-    }
-
-    /// Muliplies the public key in place by the scalar `other`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the resulting key would be invalid.
-    #[deprecated(since = "0.23.0", note = "Use mul_tweak instead")]
-    #[inline]
-    pub fn mul_assign<C: Verification>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        other: &Scalar,
-    ) -> Result<(), Error> {
-        *self = self.mul_tweak(secp, other)?;
-        Ok(())
     }
 
     /// Tweaks a [`PublicKey`] by multiplying by `tweak` modulo the curve order.
@@ -781,6 +747,24 @@ impl Ord for PublicKey {
     }
 }
 
+#[cfg(not(fuzzing))]
+impl PartialEq for PublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == core::cmp::Ordering::Equal
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Eq for PublicKey {}
+
+#[cfg(not(fuzzing))]
+impl core::hash::Hash for PublicKey {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        let ser = self.serialize();
+        ser.hash(state);
+    }
+}
+
 /// Opaque data structure that holds a keypair consisting of a secret and a public key.
 ///
 /// # Serde support
@@ -933,19 +917,6 @@ impl KeyPair {
     #[inline]
     pub fn secret_bytes(&self) -> [u8; constants::SECRET_KEY_SIZE] {
         *SecretKey::from_keypair(self).as_ref()
-    }
-
-    /// Tweaks a keypair by adding the given tweak to the secret key and updating the public key
-    /// accordingly.
-    #[inline]
-    #[deprecated(since = "0.23.0", note = "Use add_xonly_tweak instead")]
-    pub fn tweak_add_assign<C: Verification>(
-        &mut self,
-        secp: &Secp256k1<C>,
-        tweak: &Scalar,
-    ) -> Result<(), Error> {
-        *self = self.add_xonly_tweak(secp, tweak)?;
-        Ok(())
     }
 
     /// Tweaks a keypair by first converting the public key to an xonly key and tweaking it.
@@ -1249,18 +1220,6 @@ impl XOnlyPublicKey {
         ret
     }
 
-    /// Tweaks an x-only PublicKey by adding the generator multiplied with the given tweak to it.
-    #[deprecated(since = "0.23.0", note = "Use add_tweak instead")]
-    pub fn tweak_add_assign<V: Verification>(
-        &mut self,
-        secp: &Secp256k1<V>,
-        tweak: &Scalar,
-    ) -> Result<Parity, Error> {
-        let (tweaked, parity) = self.add_tweak(secp, tweak)?;
-        *self = tweaked;
-        Ok(parity)
-    }
-
     /// Tweaks an [`XOnlyPublicKey`] by adding the generator multiplied with the given tweak to it.
     ///
     /// # Returns
@@ -1347,8 +1306,8 @@ impl XOnlyPublicKey {
     /// let mut key_pair = KeyPair::new(&secp, &mut thread_rng());
     /// let (mut public_key, _) = key_pair.x_only_public_key();
     /// let original = public_key;
-    /// let parity = public_key.tweak_add_assign(&secp, &tweak).expect("Improbable to fail with a randomly generated tweak");
-    /// assert!(original.tweak_add_check(&secp, &public_key, parity, tweak));
+    /// let (tweaked, parity) = public_key.add_tweak(&secp, &tweak).expect("Improbable to fail with a randomly generated tweak");
+    /// assert!(original.tweak_add_check(&secp, &tweaked, parity, tweak));
     /// # }
     /// ```
     pub fn tweak_add_check<V: Verification>(

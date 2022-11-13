@@ -206,25 +206,6 @@ use crate::ffi::{CPtr, impl_array_newtype, types::AlignedType};
 #[cfg(feature = "groestlcoin_hashes")]
 use crate::hashes::Hash;
 
-// Backwards compatible changes
-/// Schnorr Signature related methods.
-#[deprecated(since = "0.21.0", note = "Use schnorr instead.")]
-pub mod schnorrsig {
-    #[deprecated(since = "0.21.0", note = "Use crate::XOnlyPublicKey instead.")]
-    /// backwards compatible re-export of xonly key
-    pub type PublicKey = crate::key::XOnlyPublicKey;
-    /// backwards compatible re-export of keypair
-    #[deprecated(since = "0.21.0", note = "Use crate::KeyPair instead.")]
-    pub type KeyPair = crate::key::KeyPair;
-    /// backwards compatible re-export of schnorr signatures
-    #[deprecated(since = "0.21.0", note = "Use schnorr::Signature instead.")]
-    pub type Signature = crate::schnorr::Signature;
-}
-
-#[deprecated(since = "0.21.0", note = "Use ecdsa::Signature instead.")]
-/// backwards compatible re-export of ecdsa signatures
-pub type Signature = ecdsa::Signature;
-
 /// Trait describing something that promises to be a 32-byte random number; in particular,
 /// it has negligible probability of being zero or overflowing the group order. Such objects
 /// may be converted to `Message`s without any error paths.
@@ -281,20 +262,23 @@ impl Message {
         }
     }
 
-    /// Constructs a `Message` by hashing `data` with hash algorithm `H`. This requires the feature
-    /// `groestlcoin_hashes` to be enabled.
-    /// ```rust
-    /// extern crate groestlcoin_hashes;
-    /// # extern crate secp256k1_grs;
+    /// Constructs a [`Message`] by hashing `data` with hash algorithm `H`.
+    ///
+    /// Requires the feature `groestlcoin_hashes` to be enabled.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[cfg(feature="groestlcoin_hashes")] {
+    /// use secp256k1_grs::hashes::{sha256, Hash};
     /// use secp256k1_grs::Message;
-    /// use groestlcoin_hashes::sha256;
-    /// use groestlcoin_hashes::Hash;
     ///
     /// let m1 = Message::from_hashed_data::<sha256::Hash>("Hello world!".as_bytes());
     /// // is equivalent to
     /// let m2 = Message::from(sha256::Hash::hash("Hello world!".as_bytes()));
     ///
     /// assert_eq!(m1, m2);
+    /// # }
     /// ```
     #[cfg(feature = "groestlcoin_hashes")]
     #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin_hashes")))]
@@ -610,7 +594,7 @@ mod tests {
         let ctx_vrfy = Secp256k1::verification_only();
 
         let mut full = unsafe {Secp256k1::from_raw_all(ctx_full.ctx)};
-        let mut sign = unsafe {Secp256k1::from_raw_signining_only(ctx_sign.ctx)};
+        let mut sign = unsafe {Secp256k1::from_raw_signing_only(ctx_sign.ctx)};
         let mut vrfy = unsafe {Secp256k1::from_raw_verification_only(ctx_vrfy.ctx)};
 
         let (sk, pk) = full.generate_keypair(&mut thread_rng());
