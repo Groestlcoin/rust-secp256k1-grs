@@ -25,7 +25,7 @@ use crate::Error::{self, InvalidPublicKey, InvalidPublicKeySum, InvalidSecretKey
 use crate::ffi::{self, CPtr, impl_array_newtype};
 use crate::ffi::types::c_uint;
 
-#[cfg(feature = "bitcoin_hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 use crate::{hashes, ThirtyTwoByteHash};
 
 #[cfg(feature = "serde")]
@@ -230,14 +230,14 @@ impl SecretKey {
 
     /// Constructs a [`SecretKey`] by hashing `data` with hash algorithm `H`.
     ///
-    /// Requires the feature `bitcoin_hashes` to be enabled.
+    /// Requires the feature `groestlcoin_hashes` to be enabled.
     ///
     /// # Examples
     ///
     /// ```
-    /// # #[cfg(feature="bitcoin_hashes")] {
-    /// use secp256k1::hashes::{sha256, Hash};
-    /// use secp256k1::SecretKey;
+    /// # #[cfg(feature="groestlcoin_hashes")] {
+    /// use secp256k1_grs::hashes::{sha256, Hash};
+    /// use secp256k1_grs::SecretKey;
     ///
     /// let sk1 = SecretKey::from_hashed_data::<sha256::Hash>("Hello world!".as_bytes());
     /// // is equivalent to
@@ -246,8 +246,8 @@ impl SecretKey {
     /// assert_eq!(sk1, sk2);
     /// # }
     /// ```
-    #[cfg(feature = "bitcoin_hashes")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "bitcoin_hashes")))]
+    #[cfg(feature = "groestlcoin_hashes")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin_hashes")))]
     #[inline]
     pub fn from_hashed_data<H: ThirtyTwoByteHash + hashes::Hash>(data: &[u8]) -> Self {
         <H as hashes::Hash>::hash(data).into()
@@ -349,7 +349,7 @@ impl SecretKey {
     }
 }
 
-#[cfg(feature = "bitcoin_hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 impl<T: ThirtyTwoByteHash> From<T> for SecretKey {
     /// Converts a 32-byte hash directly to a secret key without error paths.
     fn from(t: T) -> SecretKey {
