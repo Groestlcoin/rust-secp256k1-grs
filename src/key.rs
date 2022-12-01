@@ -17,14 +17,14 @@
 //!
 
 use core::convert::TryFrom;
-use core::ops::BitXor;
+use core::ops::{self, BitXor};
 use core::{fmt, ptr, str};
 
 #[cfg(feature = "serde")]
 use serde::ser::SerializeTuple;
 
 use crate::ffi::types::c_uint;
-use crate::ffi::{self, impl_array_newtype, CPtr};
+use crate::ffi::{self, CPtr};
 #[cfg(all(feature = "global-context", feature = "rand-std"))]
 use crate::schnorr;
 use crate::Error::{self, InvalidPublicKey, InvalidPublicKeySum, InvalidSecretKey};
@@ -35,6 +35,13 @@ use crate::{ecdsa, Message, SECP256K1};
 use crate::{hashes, ThirtyTwoByteHash};
 
 /// Secret 256-bit key used as `x` in an ECDSA signature.
+///
+/// # Side channel attacks
+///
+/// We have attempted to reduce the side channel attack surface by implementing a constant time `eq`
+/// method. For similar reasons we explicitly do not implement `PartialOrd`, `Ord`, or `Hash` on
+/// `SecretKey`. If you really want to order secrets keys then you can use `AsRef` to get at the
+/// underlying bytes and compare them - however this is almost certainly a bad idea.
 ///
 /// # Serde support
 ///
@@ -56,9 +63,60 @@ use crate::{hashes, ThirtyTwoByteHash};
 /// ```
 /// [`bincode`]: https://docs.rs/bincode
 /// [`cbor`]: https://docs.rs/cbor
+#[derive(Copy, Clone)]
 pub struct SecretKey([u8; constants::SECRET_KEY_SIZE]);
-impl_array_newtype!(SecretKey, u8, constants::SECRET_KEY_SIZE);
 impl_display_secret!(SecretKey);
+
+impl PartialEq for SecretKey {
+    /// This implementation is designed to be constant time to help prevent side channel attacks.
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        let accum = self.0.iter().zip(&other.0).fold(0, |accum, (a, b)| accum | a ^ b);
+        unsafe { core::ptr::read_volatile(&accum) == 0 }
+    }
+}
+
+impl Eq for SecretKey {}
+
+impl AsRef<[u8; constants::SECRET_KEY_SIZE]> for SecretKey {
+    /// Gets a reference to the underlying array.
+    ///
+    /// # Side channel attacks
+    ///
+    /// Using ordering functions (`PartialOrd`/`Ord`) on a reference to secret keys leaks data
+    /// because the implementations are not constant time. Doing so will make your code vulnerable
+    /// to side channel attacks. [`SecretKey::eq`] is implemented using a constant time algorithm,
+    /// please consider using it to do comparisons of secret keys.
+    #[inline]
+    fn as_ref(&self) -> &[u8; constants::SECRET_KEY_SIZE] {
+        let &SecretKey(ref dat) = self;
+        dat
+    }
+}
+
+impl<I> ops::Index<I> for SecretKey
+where
+    [u8]: ops::Index<I>,
+{
+    type Output = <[u8] as ops::Index<I>>::Output;
+
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output { &self.0[index] }
+}
+
+impl ffi::CPtr for SecretKey {
+    type Target = u8;
+
+    fn as_c_ptr(&self) -> *const Self::Target {
+        let &SecretKey(ref dat) = self;
+        dat.as_ptr()
+    }
+
+    fn as_mut_c_ptr(&mut self) -> *mut Self::Target {
+        let &mut SecretKey(ref mut dat) = self;
+        dat.as_mut_ptr()
+    }
+}
 
 impl str::FromStr for SecretKey {
     type Err = Error;
@@ -94,10 +152,10 @@ impl str::FromStr for SecretKey {
 /// ```
 /// [`bincode`]: https://docs.rs/bincode
 /// [`cbor`]: https://docs.rs/cbor
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(fuzzing, derive(PartialOrd, Ord, PartialEq, Eq, Hash))]
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct PublicKey(ffi::PublicKey);
+impl_fast_comparisons!(PublicKey);
 
 impl fmt::LowerHex for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -401,7 +459,7 @@ impl PublicKey {
             let mut pk = ffi::PublicKey::new();
             // We can assume the return value because it's not possible to construct
             // an invalid `SecretKey` without transmute trickery or something.
-            let res = ffi::secp256k1_ec_pubkey_create(secp.ctx, &mut pk, sk.as_c_ptr());
+            let res = ffi::secp256k1_ec_pubkey_create(secp.ctx.as_ptr(), &mut pk, sk.as_c_ptr());
             debug_assert_eq!(res, 1);
             PublicKey(pk)
         }
@@ -517,7 +575,7 @@ impl PublicKey {
     #[must_use = "you forgot to use the negated public key"]
     pub fn negate<C: Verification>(mut self, secp: &Secp256k1<C>) -> PublicKey {
         unsafe {
-            let res = ffi::secp256k1_ec_pubkey_negate(secp.ctx, &mut self.0);
+            let res = ffi::secp256k1_ec_pubkey_negate(secp.ctx.as_ptr(), &mut self.0);
             debug_assert_eq!(res, 1);
         }
         self
@@ -535,7 +593,9 @@ impl PublicKey {
         tweak: &Scalar,
     ) -> Result<PublicKey, Error> {
         unsafe {
-            if ffi::secp256k1_ec_pubkey_tweak_add(secp.ctx, &mut self.0, tweak.as_c_ptr()) == 1 {
+            if ffi::secp256k1_ec_pubkey_tweak_add(secp.ctx.as_ptr(), &mut self.0, tweak.as_c_ptr())
+                == 1
+            {
                 Ok(self)
             } else {
                 Err(Error::InvalidTweak)
@@ -555,7 +615,9 @@ impl PublicKey {
         other: &Scalar,
     ) -> Result<PublicKey, Error> {
         unsafe {
-            if ffi::secp256k1_ec_pubkey_tweak_mul(secp.ctx, &mut self.0, other.as_c_ptr()) == 1 {
+            if ffi::secp256k1_ec_pubkey_tweak_mul(secp.ctx.as_ptr(), &mut self.0, other.as_c_ptr())
+                == 1
+            {
                 Ok(self)
             } else {
                 Err(Error::InvalidTweak)
@@ -711,43 +773,6 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     }
 }
 
-#[cfg(not(fuzzing))]
-impl PartialOrd for PublicKey {
-    fn partial_cmp(&self, other: &PublicKey) -> Option<core::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[cfg(not(fuzzing))]
-impl Ord for PublicKey {
-    fn cmp(&self, other: &PublicKey) -> core::cmp::Ordering {
-        let ret = unsafe {
-            ffi::secp256k1_ec_pubkey_cmp(
-                ffi::secp256k1_context_no_precomp,
-                self.as_c_ptr(),
-                other.as_c_ptr(),
-            )
-        };
-        ret.cmp(&0i32)
-    }
-}
-
-#[cfg(not(fuzzing))]
-impl PartialEq for PublicKey {
-    fn eq(&self, other: &Self) -> bool { self.cmp(other) == core::cmp::Ordering::Equal }
-}
-
-#[cfg(not(fuzzing))]
-impl Eq for PublicKey {}
-
-#[cfg(not(fuzzing))]
-impl core::hash::Hash for PublicKey {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        let ser = self.serialize();
-        ser.hash(state);
-    }
-}
-
 /// Opaque data structure that holds a keypair consisting of a secret and a public key.
 ///
 /// # Serde support
@@ -772,9 +797,10 @@ impl core::hash::Hash for PublicKey {
 /// ```
 /// [`bincode`]: https://docs.rs/bincode
 /// [`cbor`]: https://docs.rs/cbor
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct KeyPair(ffi::KeyPair);
 impl_display_secret!(KeyPair);
+impl_fast_comparisons!(KeyPair);
 
 impl KeyPair {
     /// Obtains a raw const pointer suitable for use with FFI functions.
@@ -795,7 +821,7 @@ impl KeyPair {
     pub fn from_secret_key<C: Signing>(secp: &Secp256k1<C>, sk: &SecretKey) -> KeyPair {
         unsafe {
             let mut kp = ffi::KeyPair::new();
-            if ffi::secp256k1_keypair_create(secp.ctx, &mut kp, sk.as_c_ptr()) == 1 {
+            if ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut kp, sk.as_c_ptr()) == 1 {
                 KeyPair(kp)
             } else {
                 panic!("the provided secret key is invalid: it is corrupted or was not produced by Secp256k1 library")
@@ -820,7 +846,7 @@ impl KeyPair {
 
         unsafe {
             let mut kp = ffi::KeyPair::new();
-            if ffi::secp256k1_keypair_create(secp.ctx, &mut kp, data.as_c_ptr()) == 1 {
+            if ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut kp, data.as_c_ptr()) == 1 {
                 Ok(KeyPair(kp))
             } else {
                 Err(Error::InvalidSecretKey)
@@ -873,7 +899,9 @@ impl KeyPair {
         let mut data = crate::random_32_bytes(rng);
         unsafe {
             let mut keypair = ffi::KeyPair::new();
-            while ffi::secp256k1_keypair_create(secp.ctx, &mut keypair, data.as_c_ptr()) == 0 {
+            while ffi::secp256k1_keypair_create(secp.ctx.as_ptr(), &mut keypair, data.as_c_ptr())
+                == 0
+            {
                 data = crate::random_32_bytes(rng);
             }
             KeyPair(keypair)
@@ -924,8 +952,11 @@ impl KeyPair {
         tweak: &Scalar,
     ) -> Result<KeyPair, Error> {
         unsafe {
-            let err =
-                ffi::secp256k1_keypair_xonly_tweak_add(secp.ctx, &mut self.0, tweak.as_c_ptr());
+            let err = ffi::secp256k1_keypair_xonly_tweak_add(
+                secp.ctx.as_ptr(),
+                &mut self.0,
+                tweak.as_c_ptr(),
+            );
             if err != 1 {
                 return Err(Error::InvalidTweak);
             }
@@ -986,7 +1017,7 @@ impl<'a> From<&'a KeyPair> for PublicKey {
 impl str::FromStr for KeyPair {
     type Err = Error;
 
-    #[allow(unused_variables, unreachable_code)]  // When built with no default features.
+    #[allow(unused_variables, unreachable_code)] // When built with no default features.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         #[cfg(feature = "global-context")]
         let ctx = SECP256K1;
@@ -1056,7 +1087,7 @@ impl CPtr for KeyPair {
     fn as_mut_c_ptr(&mut self) -> *mut Self::Target { &mut self.0 }
 }
 
-/// An x-only public key, used for verification of Schnorr signatures and serialized according to BIP-340.
+/// An x-only public key, used for verification of schnorr signatures and serialized according to BIP-340.
 ///
 /// # Serde support
 ///
@@ -1079,8 +1110,9 @@ impl CPtr for KeyPair {
 /// ```
 /// [`bincode`]: https://docs.rs/bincode
 /// [`cbor`]: https://docs.rs/cbor
-#[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct XOnlyPublicKey(ffi::XOnlyPublicKey);
+impl_fast_comparisons!(XOnlyPublicKey);
 
 impl fmt::LowerHex for XOnlyPublicKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1142,7 +1174,7 @@ impl XOnlyPublicKey {
         }
     }
 
-    /// Creates a Schnorr public key directly from a slice.
+    /// Creates a schnorr public key directly from a slice.
     ///
     /// # Errors
     ///
@@ -1220,7 +1252,7 @@ impl XOnlyPublicKey {
         unsafe {
             let mut pubkey = ffi::PublicKey::new();
             let mut err = ffi::secp256k1_xonly_pubkey_tweak_add(
-                secp.ctx,
+                secp.ctx.as_ptr(),
                 &mut pubkey,
                 self.as_c_ptr(),
                 tweak.as_c_ptr(),
@@ -1230,7 +1262,7 @@ impl XOnlyPublicKey {
             }
 
             err = ffi::secp256k1_xonly_pubkey_from_pubkey(
-                secp.ctx,
+                secp.ctx.as_ptr(),
                 &mut self.0,
                 &mut pk_parity,
                 &pubkey,
@@ -1283,7 +1315,7 @@ impl XOnlyPublicKey {
         let tweaked_ser = tweaked_key.serialize();
         unsafe {
             let err = ffi::secp256k1_xonly_pubkey_tweak_add_check(
-                secp.ctx,
+                secp.ctx.as_ptr(),
                 tweaked_ser.as_c_ptr(),
                 tweaked_parity.to_i32(),
                 &self.0,
@@ -1449,7 +1481,7 @@ impl CPtr for XOnlyPublicKey {
     fn as_mut_c_ptr(&mut self) -> *mut Self::Target { &mut self.0 }
 }
 
-/// Creates a new Schnorr public key from a FFI x-only public key.
+/// Creates a new schnorr public key from a FFI x-only public key.
 impl From<ffi::XOnlyPublicKey> for XOnlyPublicKey {
     #[inline]
     fn from(pk: ffi::XOnlyPublicKey) -> XOnlyPublicKey { XOnlyPublicKey(pk) }
@@ -1507,49 +1539,13 @@ impl<'de> serde::Deserialize<'de> for XOnlyPublicKey {
     }
 }
 
-/// Serde implementation for the [`KeyPair`] type.
-///
-/// Only the secret key part of the [`KeyPair`] is serialized using the [`SecretKey`] serde
-/// implementation, meaning the public key has to be regenerated on deserialization.
-///
-/// **Attention:** The deserialization algorithm uses the [global context] to generate the public key
-/// belonging to the secret key to form a [`KeyPair`]. The typical caveats regarding use of the
-/// [global context] with secret data apply.
-///
-/// [`SecretKey`]: crate::SecretKey
-/// [global context]: crate::SECP256K1
-#[cfg(all(feature = "global-context", feature = "serde"))]
-pub mod serde_keypair {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    use crate::key::{KeyPair, SecretKey};
-
-    #[allow(missing_docs)]
-    pub fn serialize<S>(key: &KeyPair, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        SecretKey::from_keypair(key).serialize(serializer)
-    }
-
-    #[allow(missing_docs)]
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<KeyPair, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let secret_key = SecretKey::deserialize(deserializer)?;
-
-        Ok(KeyPair::from_secret_key(crate::SECP256K1, &secret_key))
-    }
-}
-
 #[cfg(test)]
 #[allow(unused_imports)]
 mod test {
     use core::str::FromStr;
 
     #[cfg(feature = "rand")]
-    use rand::{self, RngCore, rngs::mock::StepRng};
+    use rand::{self, rngs::mock::StepRng, RngCore};
     use serde_test::{Configure, Token};
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
@@ -2192,31 +2188,8 @@ mod test {
         use serde::{Deserialize, Deserializer, Serialize, Serializer};
         use serde_test::{assert_tokens, Configure, Token};
 
-        use super::serde_keypair;
         use crate::key::KeyPair;
-
-        // Normally users would derive the serde traits, but we can't easily enable the serde macros
-        // here, so they are implemented manually to be able to test the behaviour.
-        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-        struct KeyPairWrapper(KeyPair);
-
-        impl<'de> Deserialize<'de> for KeyPairWrapper {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                serde_keypair::deserialize(deserializer).map(KeyPairWrapper)
-            }
-        }
-
-        impl Serialize for KeyPairWrapper {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                serde_keypair::serialize(&self.0, serializer)
-            }
-        }
+        use crate::SECP256K1;
 
         #[rustfmt::skip]
         static SK_BYTES: [u8; 32] = [
@@ -2227,7 +2200,7 @@ mod test {
         ];
         static SK_STR: &str = "01010101010101010001020304050607ffff0000ffff00006363636363636363";
 
-        let sk = KeyPairWrapper(KeyPair::from_seckey_slice(&crate::SECP256K1, &SK_BYTES).unwrap());
+        let sk = KeyPair::from_seckey_slice(&SECP256K1, &SK_BYTES).unwrap();
         #[rustfmt::skip]
         assert_tokens(&sk.compact(), &[
             Token::Tuple{ len: 32 },

@@ -1,6 +1,6 @@
 [package]
 name = "secp256k1-grs"
-version = "0.24.1"
+version = "0.25.0"
 authors = ["Groestlcoin Developers <groestlcoin@gmail.com>"]
 license = "CC0-1.0"
 homepage = "https://github.com/Groestlcoin/rust-secp256k1-grs/"

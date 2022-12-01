@@ -60,7 +60,7 @@ fi
 
 # Build the docs if told to (this only works with the nightly toolchain)
 if [ "$DO_DOCS" = true ]; then
-    RUSTDOCFLAGS="--cfg docsrs" cargo rustdoc --features="$FEATURES" -- -D rustdoc::broken-intra-doc-links
+    RUSTDOCFLAGS="--cfg docsrs" cargo rustdoc --features="$FEATURES" -- -D rustdoc::broken-intra-doc-links -D warnings || exit 1
 fi
 
 # Webassembly stuff
@@ -88,6 +88,15 @@ if [ "$DO_ASAN" = true ]; then
     cargo run --release --features=alloc --manifest-path=./no_std_test/Cargo.toml | grep -q "Verified alloc Successfully"
 fi
 
+# Run formatter if told to.
+if [ "$DO_FMT" = true ]; then
+    if [ "$NIGHTLY" = false ]; then
+        echo "DO_FMT requires a nightly toolchain (consider using RUSTUP_TOOLCHAIN)"
+        exit 1
+    fi
+    rustup component add rustfmt
+    cargo fmt --check || exit 1
+fi
 
 # Bench if told to, only works with non-stable toolchain (nightly, beta).
 if [ "$DO_BENCH" = true ]

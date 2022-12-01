@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 use core::mem::ManuallyDrop;
+use core::ptr::NonNull;
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
@@ -62,19 +63,27 @@ pub mod global {
 
 /// A trait for all kinds of contexts that lets you define the exact flags and a function to
 /// deallocate memory. It isn't possible to implement this for types outside this crate.
+///
+/// # Safety
+///
+/// This trait is marked unsafe to allow unsafe implementations of `deallocate`.
 pub unsafe trait Context: private::Sealed {
     /// Flags for the ffi.
     const FLAGS: c_uint;
     /// A constant description of the context.
     const DESCRIPTION: &'static str;
     /// A function to deallocate the memory when the context is dropped.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must be valid. Further safety constraints may be imposed by [`std::alloc::dealloc`].
     unsafe fn deallocate(ptr: *mut u8, size: usize);
 }
 
-/// Marker trait for indicating that an instance of `Secp256k1` can be used for signing.
+/// Marker trait for indicating that an instance of [`Secp256k1`] can be used for signing.
 pub trait Signing: Context {}
 
-/// Marker trait for indicating that an instance of `Secp256k1` can be used for verification.
+/// Marker trait for indicating that an instance of [`Secp256k1`] can be used for verification.
 pub trait Verification: Context {}
 
 /// Represents the set of capabilities needed for signing (preallocated memory).
@@ -108,6 +117,7 @@ mod private {
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod alloc_only {
     use core::marker::PhantomData;
+    use core::ptr::NonNull;
 
     use super::private;
     use crate::alloc::alloc;
@@ -194,14 +204,19 @@ mod alloc_only {
             let size = unsafe { ffi::secp256k1_context_preallocated_size(C::FLAGS) };
             let layout = alloc::Layout::from_size_align(size, ALIGN_TO).unwrap();
             let ptr = unsafe { alloc::alloc(layout) };
+            if ptr.is_null() {
+                alloc::handle_alloc_error(layout);
+            }
 
             #[allow(unused_mut)] // ctx is not mutated under some feature combinations.
             let mut ctx = Secp256k1 {
                 ctx: unsafe {
-                    ffi::secp256k1_context_preallocated_create(ptr as *mut c_void, C::FLAGS)
+                    NonNull::new_unchecked(ffi::secp256k1_context_preallocated_create(
+                        ptr as *mut c_void,
+                        C::FLAGS,
+                    ))
                 },
                 phantom: PhantomData,
-                size,
             };
 
             #[cfg(all(
@@ -239,8 +254,8 @@ mod alloc_only {
     impl Secp256k1<VerifyOnly> {
         /// Creates a new Secp256k1 context that can only be used for verification.
         ///
-        /// If `rand-std` feature is enabled, context will have been randomized using `thread_rng`.
-        /// If `rand-std` feature is not enabled please consider randomizing the context (see docs
+        /// * If `rand-std` feature is enabled, context will have been randomized using `thread_rng`.
+        /// * If `rand-std` feature is not enabled please consider randomizing the context (see docs
         /// for `Secp256k1::gen_new()`).
         pub fn verification_only() -> Secp256k1<VerifyOnly> { Secp256k1::gen_new() }
     }
@@ -251,15 +266,20 @@ mod alloc_only {
 
     impl<C: Context> Clone for Secp256k1<C> {
         fn clone(&self) -> Secp256k1<C> {
-            let size = unsafe { ffi::secp256k1_context_preallocated_clone_size(self.ctx as _) };
+            let size = unsafe { ffi::secp256k1_context_preallocated_clone_size(self.ctx.as_ptr()) };
             let layout = alloc::Layout::from_size_align(size, ALIGN_TO).unwrap();
             let ptr = unsafe { alloc::alloc(layout) };
+            if ptr.is_null() {
+                alloc::handle_alloc_error(layout);
+            }
             Secp256k1 {
                 ctx: unsafe {
-                    ffi::secp256k1_context_preallocated_clone(self.ctx, ptr as *mut c_void)
+                    NonNull::new_unchecked(ffi::secp256k1_context_preallocated_clone(
+                        self.ctx.as_ptr(),
+                        ptr as *mut c_void,
+                    ))
                 },
                 phantom: PhantomData,
-                size,
             }
         }
     }
@@ -299,7 +319,7 @@ unsafe impl<'buf> Context for AllPreallocated<'buf> {
 }
 
 impl<'buf, C: Context + 'buf> Secp256k1<C> {
-    /// Lets you create a context with a preallocated buffer in a generic manner(sign/verify/all).
+    /// Lets you create a context with a preallocated buffer in a generic manner (sign/verify/all).
     pub fn preallocated_gen_new(buf: &'buf mut [AlignedType]) -> Result<Secp256k1<C>, Error> {
         #[cfg(target_arch = "wasm32")]
         ffi::types::sanity_checks_for_wasm();
@@ -309,19 +329,18 @@ impl<'buf, C: Context + 'buf> Secp256k1<C> {
         }
         Ok(Secp256k1 {
             ctx: unsafe {
-                ffi::secp256k1_context_preallocated_create(
+                NonNull::new_unchecked(ffi::secp256k1_context_preallocated_create(
                     buf.as_mut_c_ptr() as *mut c_void,
                     C::FLAGS,
-                )
+                ))
             },
             phantom: PhantomData,
-            size: 0, // We don't care about the size because it's the caller responsibility to deallocate.
         })
     }
 }
 
 impl<'buf> Secp256k1<AllPreallocated<'buf>> {
-    /// Creates a new Secp256k1 context with all capabilities
+    /// Creates a new Secp256k1 context with all capabilities.
     pub fn preallocated_new(
         buf: &'buf mut [AlignedType],
     ) -> Result<Secp256k1<AllPreallocated<'buf>>, Error> {
@@ -330,7 +349,7 @@ impl<'buf> Secp256k1<AllPreallocated<'buf>> {
     /// Uses the ffi `secp256k1_context_preallocated_size` to check the memory size needed for a context.
     pub fn preallocate_size() -> usize { Self::preallocate_size_gen() }
 
-    /// Create a context from a raw context.
+    /// Creates a context from a raw context.
     ///
     /// # Safety
     /// This is highly unsafe, due to the number of conditions that aren't checked.
@@ -344,11 +363,7 @@ impl<'buf> Secp256k1<AllPreallocated<'buf>> {
     pub unsafe fn from_raw_all(
         raw_ctx: *mut ffi::Context,
     ) -> ManuallyDrop<Secp256k1<AllPreallocated<'buf>>> {
-        ManuallyDrop::new(Secp256k1 {
-            ctx: raw_ctx,
-            phantom: PhantomData,
-            size: 0, // We don't care about the size because it's the caller responsibility to deallocate.
-        })
+        ManuallyDrop::new(Secp256k1 { ctx: NonNull::new_unchecked(raw_ctx), phantom: PhantomData })
     }
 }
 
@@ -364,9 +379,10 @@ impl<'buf> Secp256k1<SignOnlyPreallocated<'buf>> {
     #[inline]
     pub fn preallocate_signing_size() -> usize { Self::preallocate_size_gen() }
 
-    /// Create a context from a raw context.
+    /// Creates a context from a raw context.
     ///
     /// # Safety
+    ///
     /// This is highly unsafe, due to the number of conditions that aren't checked.
     /// * `raw_ctx` needs to be a valid Secp256k1 context pointer.
     /// that was generated by *exactly* the same code/version of the libsecp256k1 used here.
@@ -378,11 +394,7 @@ impl<'buf> Secp256k1<SignOnlyPreallocated<'buf>> {
     pub unsafe fn from_raw_signing_only(
         raw_ctx: *mut ffi::Context,
     ) -> ManuallyDrop<Secp256k1<SignOnlyPreallocated<'buf>>> {
-        ManuallyDrop::new(Secp256k1 {
-            ctx: raw_ctx,
-            phantom: PhantomData,
-            size: 0, // We don't care about the size because it's the caller responsibility to deallocate.
-        })
+        ManuallyDrop::new(Secp256k1 { ctx: NonNull::new_unchecked(raw_ctx), phantom: PhantomData })
     }
 }
 
@@ -398,9 +410,10 @@ impl<'buf> Secp256k1<VerifyOnlyPreallocated<'buf>> {
     #[inline]
     pub fn preallocate_verification_size() -> usize { Self::preallocate_size_gen() }
 
-    /// Create a context from a raw context.
+    /// Creates a context from a raw context.
     ///
     /// # Safety
+    ///
     /// This is highly unsafe, due to the number of conditions that aren't checked.
     /// * `raw_ctx` needs to be a valid Secp256k1 context pointer.
     /// that was generated by *exactly* the same code/version of the libsecp256k1 used here.
@@ -412,10 +425,6 @@ impl<'buf> Secp256k1<VerifyOnlyPreallocated<'buf>> {
     pub unsafe fn from_raw_verification_only(
         raw_ctx: *mut ffi::Context,
     ) -> ManuallyDrop<Secp256k1<VerifyOnlyPreallocated<'buf>>> {
-        ManuallyDrop::new(Secp256k1 {
-            ctx: raw_ctx,
-            phantom: PhantomData,
-            size: 0, // We don't care about the size because it's the caller responsibility to deallocate.
-        })
+        ManuallyDrop::new(Secp256k1 { ctx: NonNull::new_unchecked(raw_ctx), phantom: PhantomData })
     }
 }

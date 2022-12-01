@@ -152,7 +152,6 @@
 // Coding conventions
 #![deny(non_upper_case_globals, non_camel_case_types, non_snake_case)]
 #![warn(missing_docs, missing_copy_implementations, missing_debug_implementations)]
-#![allow(clippy::missing_safety_doc)]
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 // Experimental features we need.
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -181,6 +180,7 @@ pub mod schnorr;
 mod serde_util;
 
 use core::marker::PhantomData;
+use core::ptr::NonNull;
 use core::{fmt, mem, str};
 
 #[cfg(feature = "groestlcoin-hashes")]
@@ -199,7 +199,7 @@ pub use serde;
 
 pub use crate::context::*;
 use crate::ffi::types::AlignedType;
-use crate::ffi::{impl_array_newtype, CPtr};
+use crate::ffi::CPtr;
 #[cfg(feature = "groestlcoin-hashes")]
 use crate::hashes::Hash;
 pub use crate::key::{PublicKey, SecretKey, *};
@@ -232,6 +232,7 @@ impl<T: hashes::sha256t::Tag> ThirtyTwoByteHash for hashes::sha256t::Hash<T> {
 }
 
 /// A (hashed) message input to an ECDSA signature.
+#[derive(Copy, Clone)]
 pub struct Message([u8; constants::MESSAGE_SIZE]);
 impl_array_newtype!(Message, u8, constants::MESSAGE_SIZE);
 impl_pretty_debug!(Message);
@@ -298,13 +299,12 @@ impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::LowerHex::fmt(self, f) }
 }
 
-/// An ECDSA error
+/// The main error type for this library.
 #[derive(Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug)]
 pub enum Error {
-    /// Signature failed verification
+    /// Signature failed verification.
     IncorrectSignature,
-    /// Badly sized message ("messages" are actually fixed-sized digests; see the `MESSAGE_SIZE`
-    /// constant).
+    /// Bad sized message ("messages" are actually fixed-sized digests [`constants::MESSAGE_SIZE`]).
     InvalidMessage,
     /// Bad public key.
     InvalidPublicKey,
@@ -370,9 +370,8 @@ impl std::error::Error for Error {
 
 /// The secp256k1 engine, used to execute all signature operations.
 pub struct Secp256k1<C: Context> {
-    ctx: *mut ffi::Context,
+    ctx: NonNull<ffi::Context>,
     phantom: PhantomData<C>,
-    size: usize,
 }
 
 // The underlying secp context does not contain any references to memory it does not own.
@@ -389,8 +388,10 @@ impl<C: Context> Eq for Secp256k1<C> {}
 impl<C: Context> Drop for Secp256k1<C> {
     fn drop(&mut self) {
         unsafe {
-            ffi::secp256k1_context_preallocated_destroy(self.ctx);
-            C::deallocate(self.ctx as _, self.size);
+            let size = ffi::secp256k1_context_preallocated_clone_size(self.ctx.as_ptr());
+            ffi::secp256k1_context_preallocated_destroy(self.ctx.as_ptr());
+
+            C::deallocate(self.ctx.as_ptr() as _, size);
         }
     }
 }
@@ -406,7 +407,7 @@ impl<C: Context> Secp256k1<C> {
     /// shouldn't be needed with normal usage of the library. It enables
     /// extending the Secp256k1 with more cryptographic algorithms outside of
     /// this crate.
-    pub fn ctx(&self) -> &*mut ffi::Context { &self.ctx }
+    pub fn ctx(&self) -> NonNull<ffi::Context> { self.ctx }
 
     /// Returns the required memory for a preallocated context buffer in a generic manner(sign/verify/all).
     pub fn preallocate_size_gen() -> usize {
@@ -433,7 +434,7 @@ impl<C: Context> Secp256k1<C> {
     /// see comment in libsecp256k1 commit d2275795f by Gregory Maxwell.
     pub fn seeded_randomize(&mut self, seed: &[u8; 32]) {
         unsafe {
-            let err = ffi::secp256k1_context_randomize(self.ctx, seed.as_c_ptr());
+            let err = ffi::secp256k1_context_randomize(self.ctx.as_ptr(), seed.as_c_ptr());
             // This function cannot fail; it has an error return for future-proofing.
             // We do not expose this error since it is impossible to hit, and we have
             // precedent for not exposing impossible errors (for example in
@@ -529,19 +530,16 @@ pub(crate) fn random_32_bytes<R: rand::Rng + ?Sized>(rng: &mut R) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]    // When building with no default features.
-    use super::*;
-
     use std::str::FromStr;
 
     #[cfg(target_arch = "wasm32")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    #[allow(unused_imports)] // When building with no default features.
+    use super::*;
+    use crate::{constants, ecdsa, from_hex, Error, Message};
     #[cfg(feature = "alloc")]
     use crate::{ffi, PublicKey, Secp256k1, SecretKey};
-    use crate::{
-        constants, ecdsa, from_hex, Error, Message,
-    };
 
     macro_rules! hex {
         ($hex:expr) => {{
@@ -560,13 +558,12 @@ mod tests {
         let ctx_sign = unsafe { ffi::secp256k1_context_create(SignOnlyPreallocated::FLAGS) };
         let ctx_vrfy = unsafe { ffi::secp256k1_context_create(VerifyOnlyPreallocated::FLAGS) };
 
-        let size = 0;
         let full: Secp256k1<AllPreallocated> =
-            Secp256k1 { ctx: ctx_full, phantom: PhantomData, size };
+            Secp256k1 { ctx: unsafe { NonNull::new_unchecked(ctx_full) }, phantom: PhantomData };
         let sign: Secp256k1<SignOnlyPreallocated> =
-            Secp256k1 { ctx: ctx_sign, phantom: PhantomData, size };
+            Secp256k1 { ctx: unsafe { NonNull::new_unchecked(ctx_sign) }, phantom: PhantomData };
         let vrfy: Secp256k1<VerifyOnlyPreallocated> =
-            Secp256k1 { ctx: ctx_vrfy, phantom: PhantomData, size };
+            Secp256k1 { ctx: unsafe { NonNull::new_unchecked(ctx_vrfy) }, phantom: PhantomData };
 
         let (sk, pk) = full.generate_keypair(&mut rand::thread_rng());
         let msg = Message::from_slice(&[2u8; 32]).unwrap();
@@ -596,9 +593,9 @@ mod tests {
         let ctx_sign = Secp256k1::signing_only();
         let ctx_vrfy = Secp256k1::verification_only();
 
-        let mut full = unsafe { Secp256k1::from_raw_all(ctx_full.ctx) };
-        let mut sign = unsafe { Secp256k1::from_raw_signing_only(ctx_sign.ctx) };
-        let mut vrfy = unsafe { Secp256k1::from_raw_verification_only(ctx_vrfy.ctx) };
+        let mut full = unsafe { Secp256k1::from_raw_all(ctx_full.ctx.as_ptr()) };
+        let mut sign = unsafe { Secp256k1::from_raw_signing_only(ctx_sign.ctx.as_ptr()) };
+        let mut vrfy = unsafe { Secp256k1::from_raw_verification_only(ctx_vrfy.ctx.as_ptr()) };
 
         let (sk, pk) = full.generate_keypair(&mut rand::thread_rng());
         let msg = Message::from_slice(&[2u8; 32]).unwrap();
@@ -888,8 +885,9 @@ mod tests {
     #[test]
     #[cfg(feature = "rand-std")]
     fn test_hex() {
-        use super::to_hex;
         use rand::RngCore;
+
+        use super::to_hex;
 
         let mut rng = rand::thread_rng();
         const AMOUNT: usize = 1024;

@@ -19,8 +19,6 @@
 // Coding conventions
 #![deny(non_upper_case_globals, non_camel_case_types, non_snake_case, unused_mut)]
 
-#![allow(clippy::missing_safety_doc)]
-
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
@@ -133,6 +131,7 @@ impl SchnorrSigExtraParams {
 
 /// Library-internal representation of a Secp256k1 public key
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct PublicKey([c_uchar; 64]);
 impl_array_newtype!(PublicKey, c_uchar, 64);
 impl_raw_debug!(PublicKey);
@@ -169,10 +168,64 @@ impl PublicKey {
     pub fn underlying_bytes(self) -> [c_uchar; 64] {
         self.0
     }
+
+    /// Serializes this public key as a byte-encoded pair of values, in compressed form.
+    fn serialize(&self) -> [u8; 33] {
+        let mut buf = [0u8; 33];
+        let mut len = 33;
+        unsafe {
+            let ret = secp256k1_ec_pubkey_serialize(
+                secp256k1_context_no_precomp,
+                buf.as_mut_c_ptr(),
+                &mut len,
+                self,
+                SECP256K1_SER_COMPRESSED,
+            );
+            debug_assert_eq!(ret, 1);
+            debug_assert_eq!(len, 33);
+        };
+        buf
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialOrd for PublicKey {
+    fn partial_cmp(&self, other: &PublicKey) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Ord for PublicKey {
+    fn cmp(&self, other: &PublicKey) -> core::cmp::Ordering {
+        let ret = unsafe {
+            secp256k1_ec_pubkey_cmp(secp256k1_context_no_precomp, self, other)
+        };
+        ret.cmp(&0i32)
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialEq for PublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == core::cmp::Ordering::Equal
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Eq for PublicKey {}
+
+#[cfg(not(fuzzing))]
+impl core::hash::Hash for PublicKey {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        let ser = self.serialize();
+        ser.hash(state);
+    }
 }
 
 /// Library-internal representation of a Secp256k1 signature
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct Signature([c_uchar; 64]);
 impl_array_newtype!(Signature, c_uchar, 64);
 impl_raw_debug!(Signature);
@@ -209,9 +262,58 @@ impl Signature {
     pub fn underlying_bytes(self) -> [c_uchar; 64] {
         self.0
     }
+
+    /// Serializes the signature in compact format.
+    fn serialize(&self) -> [u8; 64] {
+        let mut buf = [0u8; 64];
+        unsafe {
+            let ret = secp256k1_ecdsa_signature_serialize_compact(
+                secp256k1_context_no_precomp,
+                buf.as_mut_c_ptr(),
+                self,
+            );
+            debug_assert!(ret == 1);
+        }
+        buf
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialOrd for Signature {
+    fn partial_cmp(&self, other: &Signature) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Ord for Signature {
+    fn cmp(&self, other: &Signature) -> core::cmp::Ordering {
+        let this = self.serialize();
+        let that = other.serialize();
+        this.cmp(&that)
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialEq for Signature {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == core::cmp::Ordering::Equal
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Eq for Signature {}
+
+#[cfg(not(fuzzing))]
+impl core::hash::Hash for Signature {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        let ser = self.serialize();
+        ser.hash(state);
+    }
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct XOnlyPublicKey([c_uchar; 64]);
 impl_array_newtype!(XOnlyPublicKey, c_uchar, 64);
 impl_raw_debug!(XOnlyPublicKey);
@@ -248,9 +350,59 @@ impl XOnlyPublicKey {
     pub fn underlying_bytes(self) -> [c_uchar; 64] {
         self.0
     }
+
+    /// Serializes this key as a byte-encoded x coordinate value (32 bytes).
+    fn serialize(&self) -> [u8; 32] {
+        let mut buf = [0u8; 32];
+        unsafe {
+            let ret = secp256k1_xonly_pubkey_serialize(
+                secp256k1_context_no_precomp,
+                buf.as_mut_c_ptr(),
+                self,
+            );
+            assert_eq!(ret, 1);
+        };
+        buf
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialOrd for XOnlyPublicKey {
+    fn partial_cmp(&self, other: &XOnlyPublicKey) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Ord for XOnlyPublicKey {
+    fn cmp(&self, other: &XOnlyPublicKey) -> core::cmp::Ordering {
+        let ret = unsafe {
+            secp256k1_xonly_pubkey_cmp(secp256k1_context_no_precomp, self, other)
+        };
+        ret.cmp(&0i32)
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialEq for XOnlyPublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == core::cmp::Ordering::Equal
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Eq for XOnlyPublicKey {}
+
+#[cfg(not(fuzzing))]
+impl core::hash::Hash for XOnlyPublicKey {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        let ser = self.serialize();
+        ser.hash(state);
+    }
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub struct KeyPair([c_uchar; 96]);
 impl_array_newtype!(KeyPair, c_uchar, 96);
 impl_raw_debug!(KeyPair);
@@ -286,6 +438,58 @@ impl KeyPair {
     /// essentially only useful for extending the FFI interface itself.
     pub fn underlying_bytes(self) -> [c_uchar; 96] {
         self.0
+    }
+
+    /// Creates a new compressed public key from this key pair.
+    fn public_key(&self) -> PublicKey {
+        unsafe {
+            let mut pk = PublicKey::new();
+            let ret = secp256k1_keypair_pub(
+                secp256k1_context_no_precomp,
+                &mut pk,
+                self,
+            );
+            debug_assert_eq!(ret, 1);
+            pk
+        }
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialOrd for KeyPair {
+    fn partial_cmp(&self, other: &KeyPair) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Ord for KeyPair {
+    fn cmp(&self, other: &KeyPair) -> core::cmp::Ordering {
+        let this = self.public_key();
+        let that = other.public_key();
+        this.cmp(&that)
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl PartialEq for KeyPair {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == core::cmp::Ordering::Equal
+    }
+}
+
+#[cfg(not(fuzzing))]
+impl Eq for KeyPair {}
+
+#[cfg(not(fuzzing))]
+impl core::hash::Hash for KeyPair {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        // To hash the key pair we just hash the serialized public key. Since any change to the
+        // secret key would also be a change to the public key this is a valid one way function from
+        // the key pair to the digest.
+        let pk = self.public_key();
+        let ser = pk.serialize();
+        ser.hash(state);
     }
 }
 
@@ -575,10 +779,25 @@ extern "C" {
 ///
 /// Input `flags` control which parts of the context to initialize.
 ///
+/// # Safety
+///
+/// This function is unsafe because it calls unsafe functions however (assuming no bugs) no
+/// undefined behavior is possible.
+///
 /// # Returns
 ///
 /// The newly created secp256k1 raw context.
+#[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))))]
+pub unsafe fn secp256k1_context_create(flags: c_uint) -> *mut Context {
+    rustsecp256k1_v0_6_1_context_create(flags)
+}
+
+/// A reimplementation of the C function `secp256k1_context_create` in rust.
+///
+/// See [`secp256k1_context_create`] for documentation and safety constraints.
 #[no_mangle]
+#[allow(clippy::missing_safety_doc)] // Documented above.
 #[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))))]
 pub unsafe extern "C" fn rustsecp256k1_v0_6_1_context_create(flags: c_uint) -> *mut Context {
@@ -592,17 +811,14 @@ pub unsafe extern "C" fn rustsecp256k1_v0_6_1_context_create(flags: c_uint) -> *
     let bytes = secp256k1_context_preallocated_size(flags) + ALIGN_TO;
     let layout = alloc::Layout::from_size_align(bytes, ALIGN_TO).unwrap();
     let ptr = alloc::alloc(layout);
+    if ptr.is_null() {
+        alloc::handle_alloc_error(layout);
+    }
     (ptr as *mut usize).write(bytes);
     // We must offset a whole ALIGN_TO in order to preserve the same alignment
     // this means we "lose" ALIGN_TO-size_of(usize) for padding.
     let ptr = ptr.add(ALIGN_TO) as *mut c_void;
     secp256k1_context_preallocated_create(ptr, flags)
-}
-
-#[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))))]
-pub unsafe fn secp256k1_context_create(flags: c_uint) -> *mut Context {
-    rustsecp256k1_v0_6_1_context_create(flags)
 }
 
 /// A reimplementation of the C function `secp256k1_context_destroy` in rust.
@@ -611,7 +827,17 @@ pub unsafe fn secp256k1_context_create(flags: c_uint) -> *mut Context {
 ///
 /// The pointer shouldn't be used after passing to this function, consider it as passing it to `free()`.
 ///
+/// # Safety
+///
+///  `ctx` must be a valid pointer to a block of memory created using [`secp256k1_context_create`].
+#[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))))]
+pub unsafe fn secp256k1_context_destroy(ctx: *mut Context) {
+    rustsecp256k1_v0_6_1_context_destroy(ctx)
+}
+
 #[no_mangle]
+#[allow(clippy::missing_safety_doc)] // Documented above.
 #[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))))]
 pub unsafe extern "C" fn rustsecp256k1_v0_6_1_context_destroy(ctx: *mut Context) {
@@ -622,13 +848,6 @@ pub unsafe extern "C" fn rustsecp256k1_v0_6_1_context_destroy(ctx: *mut Context)
     let layout = alloc::Layout::from_size_align(bytes, ALIGN_TO).unwrap();
     alloc::dealloc(ptr, layout);
 }
-
-#[cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))]
-#[cfg_attr(docsrs, doc(cfg(all(feature = "alloc", not(rust_secp_no_symbol_renaming)))))]
-pub unsafe fn secp256k1_context_destroy(ctx: *mut Context) {
-    rustsecp256k1_v0_6_1_context_destroy(ctx)
-}
-
 
 /// **This function is an override for the C function, this is the an edited version of the original description:**
 ///
@@ -648,6 +867,12 @@ pub unsafe fn secp256k1_context_destroy(ctx: *mut Context) {
 ///
 /// See also secp256k1_default_error_callback_fn.
 ///
+///
+/// # Safety
+///
+/// `message` string should be a null terminated C string and, up to the first null byte, must be valid UTF8.
+///
+/// For exact safety constraints see [`std::slice::from_raw_parts`] and [`std::str::from_utf8_unchecked`].
 #[no_mangle]
 #[cfg(not(rust_secp_no_symbol_renaming))]
 pub unsafe extern "C" fn rustsecp256k1_v0_6_1_default_illegal_callback_fn(message: *const c_char, _data: *mut c_void) {
@@ -671,6 +896,11 @@ pub unsafe extern "C" fn rustsecp256k1_v0_6_1_default_illegal_callback_fn(messag
 ///
 /// See also secp256k1_default_illegal_callback_fn.
 ///
+/// # Safety
+///
+/// `message` string should be a null terminated C string and, up to the first null byte, must be valid UTF8.
+///
+/// For exact safety constraints see [`std::slice::from_raw_parts`] and [`std::str::from_utf8_unchecked`].
 #[no_mangle]
 #[cfg(not(rust_secp_no_symbol_renaming))]
 pub unsafe extern "C" fn rustsecp256k1_v0_6_1_default_error_callback_fn(message: *const c_char, _data: *mut c_void) {
@@ -680,6 +910,11 @@ pub unsafe extern "C" fn rustsecp256k1_v0_6_1_default_error_callback_fn(message:
     panic!("[libsecp256k1] internal consistency check failed {}", msg);
 }
 
+/// Returns the length of the `str_ptr` string.
+///
+/// # Safety
+///
+/// `str_ptr` must be valid pointer and point to a valid null terminated C string.
 #[cfg(not(rust_secp_no_symbol_renaming))]
 unsafe fn strlen(mut str_ptr: *const c_char) -> usize {
     let mut ctr = 0;

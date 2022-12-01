@@ -1,4 +1,5 @@
 //! Structs and functionality related to the ECDSA signature algorithm.
+//!
 
 #[cfg(feature = "recovery")]
 mod recovery;
@@ -18,8 +19,9 @@ use crate::{
 };
 
 /// An ECDSA signature
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Signature(pub(crate) ffi::Signature);
+impl_fast_comparisons!(Signature);
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(self, f) }
@@ -256,7 +258,7 @@ impl<C: Signing> Secp256k1<C> {
             // an invalid signature from a valid `Message` and `SecretKey`
             assert_eq!(
                 ffi::secp256k1_ecdsa_sign(
-                    self.ctx,
+                    self.ctx.as_ptr(),
                     &mut ret,
                     msg.as_c_ptr(),
                     sk.as_c_ptr(),
@@ -305,7 +307,7 @@ impl<C: Signing> Secp256k1<C> {
                 // an invalid signature from a valid `Message` and `SecretKey`
                 assert_eq!(
                     ffi::secp256k1_ecdsa_sign(
-                        self.ctx,
+                        self.ctx.as_ptr(),
                         &mut ret,
                         msg.as_c_ptr(),
                         sk.as_c_ptr(),
@@ -386,8 +388,12 @@ impl<C: Verification> Secp256k1<C> {
         pk: &PublicKey,
     ) -> Result<(), Error> {
         unsafe {
-            if ffi::secp256k1_ecdsa_verify(self.ctx, sig.as_c_ptr(), msg.as_c_ptr(), pk.as_c_ptr())
-                == 0
+            if ffi::secp256k1_ecdsa_verify(
+                self.ctx.as_ptr(),
+                sig.as_c_ptr(),
+                msg.as_c_ptr(),
+                pk.as_c_ptr(),
+            ) == 0
             {
                 Err(Error::IncorrectSignature)
             } else {

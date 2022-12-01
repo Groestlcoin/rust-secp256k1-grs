@@ -1,5 +1,4 @@
-//! # schnorrsig
-//! Support for Schnorr signatures.
+//! Support for schnorr signatures.
 //!
 
 use core::{fmt, ptr, str};
@@ -7,13 +6,16 @@ use core::{fmt, ptr, str};
 #[cfg(feature = "rand")]
 use rand::{CryptoRng, Rng};
 
-use crate::ffi::{self, impl_array_newtype, CPtr};
+use crate::ffi::{self, CPtr};
 use crate::key::{KeyPair, XOnlyPublicKey};
 #[cfg(feature = "global-context")]
 use crate::SECP256K1;
-use crate::{constants, from_hex, Error, Message, Secp256k1, Signing, Verification};
+use crate::{
+    constants, from_hex, impl_array_newtype, Error, Message, Secp256k1, Signing, Verification,
+};
 
-/// Represents a Schnorr signature.
+/// Represents a schnorr signature.
+#[derive(Copy, Clone)]
 pub struct Signature([u8; constants::SCHNORR_SIGNATURE_SIZE]);
 impl_array_newtype!(Signature, u8, constants::SCHNORR_SIGNATURE_SIZE);
 impl_pretty_debug!(Signature);
@@ -71,7 +73,7 @@ impl str::FromStr for Signature {
 }
 
 impl Signature {
-    /// Creates a Signature directly from a slice
+    /// Creates a `Signature` directly from a slice.
     #[inline]
     pub fn from_slice(data: &[u8]) -> Result<Signature, Error> {
         match data.len() {
@@ -105,7 +107,7 @@ impl<C: Signing> Secp256k1<C> {
             assert_eq!(
                 1,
                 ffi::secp256k1_schnorrsig_sign(
-                    self.ctx,
+                    self.ctx.as_ptr(),
                     sig.as_mut_c_ptr(),
                     msg.as_c_ptr(),
                     keypair.as_c_ptr(),
@@ -117,7 +119,7 @@ impl<C: Signing> Secp256k1<C> {
         }
     }
 
-    /// Create a schnorr signature internally using the ThreadRng random number
+    /// Creates a schnorr signature internally using the [`rand::rngs::ThreadRng`] random number
     /// generator to generate the auxiliary random data.
     #[cfg(feature = "rand-std")]
     #[cfg_attr(docsrs, doc(cfg(feature = "rand-std")))]
@@ -125,12 +127,12 @@ impl<C: Signing> Secp256k1<C> {
         self.sign_schnorr_with_rng(msg, keypair, &mut rand::thread_rng())
     }
 
-    /// Create a schnorr signature without using any auxiliary random data.
+    /// Creates a schnorr signature without using any auxiliary random data.
     pub fn sign_schnorr_no_aux_rand(&self, msg: &Message, keypair: &KeyPair) -> Signature {
         self.sign_schnorr_helper(msg, keypair, ptr::null())
     }
 
-    /// Create a Schnorr signature using the given auxiliary random data.
+    /// Creates a schnorr signature using the given auxiliary random data.
     pub fn sign_schnorr_with_aux_rand(
         &self,
         msg: &Message,
@@ -140,7 +142,7 @@ impl<C: Signing> Secp256k1<C> {
         self.sign_schnorr_helper(msg, keypair, aux_rand.as_c_ptr() as *const ffi::types::c_uchar)
     }
 
-    /// Create a schnorr signature using the given random number generator to
+    /// Creates a schnorr signature using the given random number generator to
     /// generate the auxiliary random data.
     #[cfg(feature = "rand")]
     #[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
@@ -157,7 +159,7 @@ impl<C: Signing> Secp256k1<C> {
 }
 
 impl<C: Verification> Secp256k1<C> {
-    /// Verify a Schnorr signature.
+    /// Verifies a schnorr signature.
     pub fn verify_schnorr(
         &self,
         sig: &Signature,
@@ -166,7 +168,7 @@ impl<C: Verification> Secp256k1<C> {
     ) -> Result<(), Error> {
         unsafe {
             let ret = ffi::secp256k1_schnorrsig_verify(
-                self.ctx,
+                self.ctx.as_ptr(),
                 sig.as_c_ptr(),
                 msg.as_c_ptr(),
                 32,
