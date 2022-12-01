@@ -20,7 +20,7 @@ jobs:
           components: rust-src
       - name: Check formatting
         env:
-          DO_FMT: true
+          DO_FMT: false
         run: ./contrib/test.sh
       - name: Running address sanitizer
         env:
