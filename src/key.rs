@@ -31,7 +31,7 @@ use crate::Error::{self, InvalidPublicKey, InvalidPublicKeySum, InvalidSecretKey
 use crate::{constants, from_hex, Scalar, Secp256k1, Signing, Verification};
 #[cfg(feature = "global-context")]
 use crate::{ecdsa, Message, SECP256K1};
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 use crate::{hashes, ThirtyTwoByteHash};
 
 /// Secret 256-bit key used as `x` in an ECDSA signature.
@@ -284,7 +284,7 @@ impl SecretKey {
     /// assert_eq!(sk1, sk2);
     /// # }
     /// ```
-    #[cfg(feature = "groestlcoin-hashes")]
+    #[cfg(feature = "groestlcoin_hashes")]
     #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin-hashes")))]
     #[inline]
     pub fn from_hashed_data<H: ThirtyTwoByteHash + hashes::Hash>(data: &[u8]) -> Self {
@@ -383,7 +383,7 @@ impl SecretKey {
     }
 }
 
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 impl<T: ThirtyTwoByteHash> From<T> for SecretKey {
     /// Converts a 32-byte hash directly to a secret key without error paths.
     fn from(t: T) -> SecretKey {
@@ -486,7 +486,7 @@ impl PublicKey {
                 ffi::secp256k1_context_no_precomp,
                 &mut pk,
                 data.as_c_ptr(),
-                data.len() as usize,
+                data.len(),
             ) == 1
             {
                 Ok(PublicKey(pk))

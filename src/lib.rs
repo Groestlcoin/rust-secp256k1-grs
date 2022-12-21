@@ -140,8 +140,8 @@
 //! * `alloc` - use the `alloc` standard Rust library to provide heap allocations.
 //! * `rand` - use `rand` library to provide random generator (e.g. to generate keys).
 //! * `rand-std` - use `rand` library with its `std` feature enabled. (Implies `rand`.)
-//! * `groestlcoin-hashes` - use the `groestlcoin-hashes` library.
-//! * `groestlcoin-hashes-std` - use the `groestlcoin-hashes` library with its `std` feature enabled (implies `groestlcoin-hashes`).
+//! * `groestlcoin-hashes` - use the `groestlcoin_hashes` library.
+//! * `groestlcoin-hashes-std` - use the `groestlcoin_hashes` library with its `std` feature enabled (implies `groestlcoin-hashes`).
 //! * `recovery` - enable functions that can compute the public key from signature.
 //! * `lowmemory` - optimize the library for low-memory environments.
 //! * `global-context` - enable use of global secp256k1 context (implies `std`).
@@ -183,7 +183,7 @@ use core::marker::PhantomData;
 use core::ptr::NonNull;
 use core::{fmt, mem, str};
 
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin-hashes")))]
 pub use groestlcoin_hashes as hashes;
 #[cfg(feature = "global-context")]
@@ -200,7 +200,7 @@ pub use serde;
 pub use crate::context::*;
 use crate::ffi::types::AlignedType;
 use crate::ffi::CPtr;
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 use crate::hashes::Hash;
 pub use crate::key::{PublicKey, SecretKey, *};
 pub use crate::scalar::Scalar;
@@ -213,19 +213,19 @@ pub trait ThirtyTwoByteHash {
     fn into_32(self) -> [u8; 32];
 }
 
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin-hashes")))]
 impl ThirtyTwoByteHash for hashes::sha256::Hash {
     fn into_32(self) -> [u8; 32] { self.into_inner() }
 }
 
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin-hashes")))]
 impl ThirtyTwoByteHash for hashes::sha256d::Hash {
     fn into_32(self) -> [u8; 32] { self.into_inner() }
 }
 
-#[cfg(feature = "groestlcoin-hashes")]
+#[cfg(feature = "groestlcoin_hashes")]
 #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin-hashes")))]
 impl<T: hashes::sha256t::Tag> ThirtyTwoByteHash for hashes::sha256t::Hash<T> {
     fn into_32(self) -> [u8; 32] { self.into_inner() }
@@ -263,7 +263,7 @@ impl Message {
     /// # Examples
     ///
     /// ```
-    /// # #[cfg(feature = "groestlcoin-hashes")] {
+    /// # #[cfg(feature = "groestlcoin_hashes")] {
     /// use secp256k1_grs::hashes::{sha256, Hash};
     /// use secp256k1_grs::Message;
     ///
@@ -274,7 +274,7 @@ impl Message {
     /// assert_eq!(m1, m2);
     /// # }
     /// ```
-    #[cfg(feature = "groestlcoin-hashes")]
+    #[cfg(feature = "groestlcoin_hashes")]
     #[cfg_attr(docsrs, doc(cfg(feature = "groestlcoin-hashes")))]
     pub fn from_hashed_data<H: ThirtyTwoByteHash + hashes::Hash>(data: &[u8]) -> Self {
         <H as hashes::Hash>::hash(data).into()
@@ -389,7 +389,7 @@ impl<C: Context> Drop for Secp256k1<C> {
     fn drop(&mut self) {
         unsafe {
             let size = ffi::secp256k1_context_preallocated_clone_size(self.ctx.as_ptr());
-            ffi::secp256k1_context_preallocated_destroy(self.ctx.as_ptr());
+            ffi::secp256k1_context_preallocated_destroy(self.ctx);
 
             C::deallocate(self.ctx.as_ptr() as _, size);
         }
@@ -434,7 +434,7 @@ impl<C: Context> Secp256k1<C> {
     /// see comment in libsecp256k1 commit d2275795f by Gregory Maxwell.
     pub fn seeded_randomize(&mut self, seed: &[u8; 32]) {
         unsafe {
-            let err = ffi::secp256k1_context_randomize(self.ctx.as_ptr(), seed.as_c_ptr());
+            let err = ffi::secp256k1_context_randomize(self.ctx, seed.as_c_ptr());
             // This function cannot fail; it has an error return for future-proofing.
             // We do not expose this error since it is impossible to hit, and we have
             // precedent for not exposing impossible errors (for example in
@@ -558,12 +558,11 @@ mod tests {
         let ctx_sign = unsafe { ffi::secp256k1_context_create(SignOnlyPreallocated::FLAGS) };
         let ctx_vrfy = unsafe { ffi::secp256k1_context_create(VerifyOnlyPreallocated::FLAGS) };
 
-        let full: Secp256k1<AllPreallocated> =
-            Secp256k1 { ctx: unsafe { NonNull::new_unchecked(ctx_full) }, phantom: PhantomData };
+        let full: Secp256k1<AllPreallocated> = Secp256k1 { ctx: ctx_full, phantom: PhantomData };
         let sign: Secp256k1<SignOnlyPreallocated> =
-            Secp256k1 { ctx: unsafe { NonNull::new_unchecked(ctx_sign) }, phantom: PhantomData };
+            Secp256k1 { ctx: ctx_sign, phantom: PhantomData };
         let vrfy: Secp256k1<VerifyOnlyPreallocated> =
-            Secp256k1 { ctx: unsafe { NonNull::new_unchecked(ctx_vrfy) }, phantom: PhantomData };
+            Secp256k1 { ctx: ctx_vrfy, phantom: PhantomData };
 
         let (sk, pk) = full.generate_keypair(&mut rand::thread_rng());
         let msg = Message::from_slice(&[2u8; 32]).unwrap();
@@ -593,9 +592,9 @@ mod tests {
         let ctx_sign = Secp256k1::signing_only();
         let ctx_vrfy = Secp256k1::verification_only();
 
-        let mut full = unsafe { Secp256k1::from_raw_all(ctx_full.ctx.as_ptr()) };
-        let mut sign = unsafe { Secp256k1::from_raw_signing_only(ctx_sign.ctx.as_ptr()) };
-        let mut vrfy = unsafe { Secp256k1::from_raw_verification_only(ctx_vrfy.ctx.as_ptr()) };
+        let mut full = unsafe { Secp256k1::from_raw_all(ctx_full.ctx) };
+        let mut sign = unsafe { Secp256k1::from_raw_signing_only(ctx_sign.ctx) };
+        let mut vrfy = unsafe { Secp256k1::from_raw_verification_only(ctx_vrfy.ctx) };
 
         let (sk, pk) = full.generate_keypair(&mut rand::thread_rng());
         let msg = Message::from_slice(&[2u8; 32]).unwrap();
@@ -1038,7 +1037,7 @@ mod tests {
         assert!(SECP256K1.verify_ecdsa(&msg, &sig, &pk).is_ok());
     }
 
-    #[cfg(feature = "groestlcoin-hashes")]
+    #[cfg(feature = "groestlcoin_hashes")]
     #[test]
     fn test_from_hash() {
         use crate::hashes::{self, Hash};
