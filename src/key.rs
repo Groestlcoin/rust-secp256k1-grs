@@ -66,6 +66,7 @@ use crate::{hashes, ThirtyTwoByteHash};
 #[derive(Copy, Clone)]
 pub struct SecretKey([u8; constants::SECRET_KEY_SIZE]);
 impl_display_secret!(SecretKey);
+impl_non_secure_erase!(SecretKey, 0, [1u8; constants::SECRET_KEY_SIZE]);
 
 impl PartialEq for SecretKey {
     /// This implementation is designed to be constant time to help prevent side channel attacks.
@@ -89,7 +90,7 @@ impl AsRef<[u8; constants::SECRET_KEY_SIZE]> for SecretKey {
     /// please consider using it to do comparisons of secret keys.
     #[inline]
     fn as_ref(&self) -> &[u8; constants::SECRET_KEY_SIZE] {
-        let &SecretKey(ref dat) = self;
+        let SecretKey(dat) = self;
         dat
     }
 }
@@ -108,7 +109,7 @@ impl ffi::CPtr for SecretKey {
     type Target = u8;
 
     fn as_c_ptr(&self) -> *const Self::Target {
-        let &SecretKey(ref dat) = self;
+        let SecretKey(dat) = self;
         dat.as_ptr()
     }
 
@@ -992,6 +993,15 @@ impl KeyPair {
     pub fn sign_schnorr(&self, msg: Message) -> schnorr::Signature {
         SECP256K1.sign_schnorr(&msg, self)
     }
+
+    /// Attempts to erase the secret within the underlying array.
+    ///
+    /// Note, however, that the compiler is allowed to freely copy or move the contents
+    /// of this array to other places in memory. Preventing this behavior is very subtle.
+    /// For more discussion on this, please see the documentation of the
+    /// [`zeroize`](https://docs.rs/zeroize) crate.
+    #[inline]
+    pub fn non_secure_erase(&mut self) { self.0.non_secure_erase(); }
 }
 
 impl From<KeyPair> for SecretKey {
@@ -1604,6 +1614,17 @@ mod test {
     }
 
     #[test]
+    #[cfg(all(feature = "std", not(fuzzing)))]
+    fn erased_keypair_is_valid() {
+        let s = Secp256k1::new();
+        let kp = KeyPair::from_seckey_slice(&s, &[1u8; constants::SECRET_KEY_SIZE])
+            .expect("valid secret key");
+        let mut kp2 = kp;
+        kp2.non_secure_erase();
+        assert!(kp.eq_fast_unstable(&kp2));
+    }
+
+    #[test]
     #[rustfmt::skip]
     fn invalid_secret_key() {
         // Zero
@@ -2200,7 +2221,7 @@ mod test {
         ];
         static SK_STR: &str = "01010101010101010001020304050607ffff0000ffff00006363636363636363";
 
-        let sk = KeyPair::from_seckey_slice(&SECP256K1, &SK_BYTES).unwrap();
+        let sk = KeyPair::from_seckey_slice(SECP256K1, &SK_BYTES).unwrap();
         #[rustfmt::skip]
         assert_tokens(&sk.compact(), &[
             Token::Tuple{ len: 32 },
@@ -2378,11 +2399,9 @@ mod test {
             99, 99, 99, 99, 99, 99, 99, 99
         ];
 
-        static PK_STR: &'static str = "\
-            18845781f631c48f1c9709e23092067d06837f30aa0cd0544ac887fe91ddd166\
-        ";
+        static PK_STR: &str = "18845781f631c48f1c9709e23092067d06837f30aa0cd0544ac887fe91ddd166";
 
-        let kp = KeyPair::from_seckey_slice(&crate::SECP256K1, &SK_BYTES).unwrap();
+        let kp = KeyPair::from_seckey_slice(crate::SECP256K1, &SK_BYTES).unwrap();
         let (pk, _parity) = XOnlyPublicKey::from_keypair(&kp);
 
         #[rustfmt::skip]
@@ -2401,14 +2420,13 @@ mod test {
     }
 
     #[test]
-    #[cfg(all(feature = "rand-std", feature = "groestlcoin-hashes-std"))]
+    #[cfg(feature = "rand-std")]
     fn test_keypair_from_str() {
-        use groestlcoin_hashes::hex::ToHex;
-
         let ctx = crate::Secp256k1::new();
         let keypair = KeyPair::new(&ctx, &mut rand::thread_rng());
-        let msg = keypair.secret_key().secret_bytes().to_hex();
-        let parsed_key: KeyPair = msg.parse().unwrap();
+        let mut buf = [0_u8; constants::SECRET_KEY_SIZE * 2]; // Holds hex digits.
+        let s = to_hex(&keypair.secret_key().secret_bytes(), &mut buf).unwrap();
+        let parsed_key = KeyPair::from_str(s).unwrap();
         assert_eq!(parsed_key, keypair);
     }
 
@@ -2419,7 +2437,7 @@ mod test {
         let sec_key_str = "4242424242424242424242424242424242424242424242424242424242424242";
         let keypair = KeyPair::from_seckey_str(&ctx, sec_key_str).unwrap();
 
-        serde_test::assert_tokens(&keypair.readable(), &[Token::String(&sec_key_str)]);
+        serde_test::assert_tokens(&keypair.readable(), &[Token::String(sec_key_str)]);
 
         let sec_key_bytes = keypair.secret_key().secret_bytes();
         let tokens = std::iter::once(Token::Tuple { len: 32 })
