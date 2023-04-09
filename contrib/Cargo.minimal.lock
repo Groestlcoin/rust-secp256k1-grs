@@ -18,18 +18,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitcoin-private"
+name = "groestlcoin-private"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73290177011694f38ec25e165d0387ab7ea749a4b81cd4c80dae5988229f7a57"
+checksum = "0ff3dd863854fa31ecd3d532241e001e9237b9d2577a54fe19c3479976fe22aa"
 
 [[package]]
-name = "bitcoin_hashes"
+name = "groestlcoin_hashes"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d7066118b13d4b20b23645932dfb3a81ce7e29f95726c2036fa33cd7b092501"
+checksum = "85ef56eac1b579cd63485a5cb01c0dfb3a6d399d36a1dcad36626138c7bac888"
 dependencies = [
- "bitcoin-private",
+ "groestlcoin-private",
 ]
 
 [[package]]
@@ -253,8 +253,8 @@ name = "secp256k1"
 version = "0.27.0"
 dependencies = [
  "bincode",
- "bitcoin_hashes",
  "getrandom",
+ "groestlcoin_hashes",
  "rand",
  "rand_core",
  "secp256k1-sys",
