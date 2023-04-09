@@ -1,3 +1,15 @@
+# Unreleased
+
+* Bump MSRV to 1.48
+* Remove implementations of `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` from the
+  `impl_array_newtype` macro. Users will now need to derive these traits if they are wanted.
+
+# 0.27.0 - 2023-03-15
+
+* [Depend on newly release `bitcoin_hashes` v0.12](https://github.com/rust-bitcoin/rust-secp256k1/pull/588).
+* [Implement `Debug` trait for `Scalar` type](https://github.com/rust-bitcoin/rust-secp256k1/pull/578).
+* [Implement `insecure-erase`](https://github.com/rust-bitcoin/rust-secp256k1/pull/582).
+
 # 0.26.0 - 2202-12-19
 
 * Update libsecp25k1 to v0.2.0
