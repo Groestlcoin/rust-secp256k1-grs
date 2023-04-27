@@ -61,8 +61,8 @@ fi
 if [ "$DO_LINT" = true ]
 then
     cargo clippy --all-features --all-targets -- -D warnings
-    cargo clippy --example sign_verify --features=bitcoin-hashes-std -- -D warnings
-    cargo clippy --example sign_verify_recovery --features=recovery,bitcoin-hashes-std -- -D warnings
+    cargo clippy --example sign_verify --features=groestlcoin-hashes-std -- -D warnings
+    cargo clippy --example sign_verify_recovery --features=recovery,groestlcoin-hashes-std -- -D warnings
     cargo clippy --example generate_keys --features=rand-std -- -D warnings
 fi
 
