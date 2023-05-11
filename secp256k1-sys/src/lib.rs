@@ -1,17 +1,5 @@
-// Bitcoin secp256k1 bindings
-// Written in 2014 by
-//   Dawid Ciężarkiewicz
-//   Andrew Poelstra
-//
-// To the extent possible under law, the author(s) have dedicated all
-// copyright and related and neighboring rights to this software to
-// the public domain worldwide. This software is distributed without
-// any warranty.
-//
-// You should have received a copy of the CC0 Public Domain Dedication
-// along with this software.
-// If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
-//
+// SPDX-License-Identifier: CC0-1.0
+
 //! # secp256k1-sys FFI bindings
 //! Direct bindings to the underlying C library functions. These should
 //! not be needed for most users.
@@ -20,7 +8,7 @@
 #![deny(non_upper_case_globals, non_camel_case_types, non_snake_case, unused_mut)]
 
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(any(test, feature = "std"))]
 extern crate core;
@@ -28,7 +16,7 @@ extern crate core;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(fuzzing)]
+#[cfg(secp256k1_fuzz)]
 const THIS_UNUSED_CONSTANT_IS_YOUR_WARNING_THAT_ALL_THE_CRYPTO_IN_THIS_LIB_IS_DISABLED_FOR_FUZZING: usize = 0;
 
 mod macros;
@@ -133,7 +121,7 @@ impl SchnorrSigExtraParams {
 /// Library-internal representation of a Secp256k1 public key
 #[repr(C)]
 #[derive(Copy, Clone)]
-#[cfg_attr(fuzzing, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
+#[cfg_attr(secp256k1_fuzz, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
 pub struct PublicKey([c_uchar; 64]);
 impl_array_newtype!(PublicKey, c_uchar, 64);
 impl_raw_debug!(PublicKey);
@@ -190,14 +178,14 @@ impl PublicKey {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialOrd for PublicKey {
     fn partial_cmp(&self, other: &PublicKey) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Ord for PublicKey {
     fn cmp(&self, other: &PublicKey) -> core::cmp::Ordering {
         let ret = unsafe {
@@ -207,17 +195,17 @@ impl Ord for PublicKey {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialEq for PublicKey {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == core::cmp::Ordering::Equal
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Eq for PublicKey {}
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl core::hash::Hash for PublicKey {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         let ser = self.serialize();
@@ -228,7 +216,7 @@ impl core::hash::Hash for PublicKey {
 /// Library-internal representation of a Secp256k1 signature
 #[repr(C)]
 #[derive(Copy, Clone)]
-#[cfg_attr(fuzzing, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
+#[cfg_attr(secp256k1_fuzz, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
 pub struct Signature([c_uchar; 64]);
 impl_array_newtype!(Signature, c_uchar, 64);
 impl_raw_debug!(Signature);
@@ -281,14 +269,14 @@ impl Signature {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialOrd for Signature {
     fn partial_cmp(&self, other: &Signature) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Ord for Signature {
     fn cmp(&self, other: &Signature) -> core::cmp::Ordering {
         let this = self.serialize();
@@ -297,17 +285,17 @@ impl Ord for Signature {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == core::cmp::Ordering::Equal
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Eq for Signature {}
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl core::hash::Hash for Signature {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         let ser = self.serialize();
@@ -317,7 +305,7 @@ impl core::hash::Hash for Signature {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-#[cfg_attr(fuzzing, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
+#[cfg_attr(secp256k1_fuzz, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
 pub struct XOnlyPublicKey([c_uchar; 64]);
 impl_array_newtype!(XOnlyPublicKey, c_uchar, 64);
 impl_raw_debug!(XOnlyPublicKey);
@@ -370,14 +358,14 @@ impl XOnlyPublicKey {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialOrd for XOnlyPublicKey {
     fn partial_cmp(&self, other: &XOnlyPublicKey) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Ord for XOnlyPublicKey {
     fn cmp(&self, other: &XOnlyPublicKey) -> core::cmp::Ordering {
         let ret = unsafe {
@@ -387,17 +375,17 @@ impl Ord for XOnlyPublicKey {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialEq for XOnlyPublicKey {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == core::cmp::Ordering::Equal
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Eq for XOnlyPublicKey {}
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl core::hash::Hash for XOnlyPublicKey {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         let ser = self.serialize();
@@ -407,7 +395,7 @@ impl core::hash::Hash for XOnlyPublicKey {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-#[cfg_attr(fuzzing, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
+#[cfg_attr(secp256k1_fuzz, derive(PartialEq, Eq, PartialOrd, Ord, Hash))]
 pub struct KeyPair([c_uchar; 96]);
 impl_array_newtype!(KeyPair, c_uchar, 96);
 impl_raw_debug!(KeyPair);
@@ -492,14 +480,14 @@ pub fn non_secure_erase_impl<T>(dst: &mut T, src: T) {
     atomic::compiler_fence(atomic::Ordering::SeqCst);
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialOrd for KeyPair {
     fn partial_cmp(&self, other: &KeyPair) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Ord for KeyPair {
     fn cmp(&self, other: &KeyPair) -> core::cmp::Ordering {
         let this = self.public_key();
@@ -508,17 +496,17 @@ impl Ord for KeyPair {
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl PartialEq for KeyPair {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == core::cmp::Ordering::Equal
     }
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl Eq for KeyPair {}
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 impl core::hash::Hash for KeyPair {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         // To hash the key pair we just hash the serialized public key. Since any change to the
@@ -615,7 +603,7 @@ extern "C" {
                                  -> c_int;
 }
 
-#[cfg(not(fuzzing))]
+#[cfg(not(secp256k1_fuzz))]
 extern "C" {
     // Contexts
     #[cfg_attr(not(rust_secp_no_symbol_renaming), link_name = "rustsecp256k1_v0_8_1_context_preallocated_size")]
@@ -996,7 +984,7 @@ impl<T> CPtr for [T] {
     }
 }
 
-#[cfg(fuzzing)]
+#[cfg(secp256k1_fuzz)]
 mod fuzz_dummy {
     use super::*;
     use core::sync::atomic::{AtomicUsize, Ordering};
@@ -1482,7 +1470,7 @@ mod fuzz_dummy {
     }
 }
 
-#[cfg(fuzzing)]
+#[cfg(secp256k1_fuzz)]
 pub use self::fuzz_dummy::*;
 
 #[cfg(test)]
