@@ -13,10 +13,12 @@ use serde::ser::SerializeTuple;
 use crate::ffi::types::c_uint;
 use crate::ffi::{self, CPtr};
 use crate::Error::{self, InvalidPublicKey, InvalidPublicKeySum, InvalidSecretKey};
-use crate::{constants, from_hex, schnorr, Message, Scalar, Secp256k1, Signing, Verification};
 #[cfg(feature = "global-context")]
-use crate::{ecdsa, SECP256K1};
-#[cfg(feature = "groestlcoin_hashes")]
+use crate::SECP256K1;
+use crate::{
+    constants, ecdsa, from_hex, schnorr, Message, Scalar, Secp256k1, Signing, Verification,
+};
+#[cfg(feature = "hashes")]
 use crate::{hashes, ThirtyTwoByteHash};
 
 /// Secret 256-bit key used as `x` in an ECDSA signature.
@@ -253,12 +255,12 @@ impl SecretKey {
 
     /// Constructs a [`SecretKey`] by hashing `data` with hash algorithm `H`.
     ///
-    /// Requires the feature `groestlcoin_hashes` to be enabled.
+    /// Requires the feature `hashes` to be enabled.
     ///
     /// # Examples
     ///
     /// ```
-    /// # #[cfg(feature="groestlcoin_hashes")] {
+    /// # #[cfg(feature="hashes")] {
     /// use secp256k1_grs::hashes::{sha256, Hash};
     /// use secp256k1_grs::SecretKey;
     ///
@@ -269,7 +271,7 @@ impl SecretKey {
     /// assert_eq!(sk1, sk2);
     /// # }
     /// ```
-    #[cfg(feature = "groestlcoin_hashes")]
+    #[cfg(feature = "hashes")]
     #[inline]
     pub fn from_hashed_data<H: ThirtyTwoByteHash + hashes::Hash>(data: &[u8]) -> Self {
         <H as hashes::Hash>::hash(data).into()
@@ -366,7 +368,7 @@ impl SecretKey {
     }
 }
 
-#[cfg(feature = "groestlcoin_hashes")]
+#[cfg(feature = "hashes")]
 impl<T: ThirtyTwoByteHash> From<T> for SecretKey {
     /// Converts a 32-byte hash directly to a secret key without error paths.
     fn from(t: T) -> SecretKey {
@@ -695,6 +697,16 @@ impl PublicKey {
 
             (XOnlyPublicKey(xonly_pk), parity)
         }
+    }
+
+    /// Checks that `sig` is a valid ECDSA signature for `msg` using this public key.
+    pub fn verify<C: Verification>(
+        &self,
+        secp: &Secp256k1<C>,
+        msg: &Message,
+        sig: &ecdsa::Signature,
+    ) -> Result<(), Error> {
+        secp.verify_ecdsa(msg, sig, self)
     }
 }
 
@@ -1036,6 +1048,8 @@ impl serde::Serialize for KeyPair {
 }
 
 #[cfg(feature = "serde")]
+#[allow(unused_variables)] // For `data` under some feature combinations (the unconditional panic below).
+#[allow(unreachable_code)] // For `KeyPair::from_seckey_slice` after unconditional panic.
 impl<'de> serde::Deserialize<'de> for KeyPair {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         if d.is_human_readable() {
@@ -1051,7 +1065,7 @@ impl<'de> serde::Deserialize<'de> for KeyPair {
                 let ctx = Secp256k1::signing_only();
 
                 #[cfg(not(any(feature = "global-context", feature = "alloc")))]
-                let ctx: Secp256k1<crate::SignOnlyPreallocated> = panic!("The previous implementation was panicking too, please enable the global-context feature of rust-secp256k1");
+                let ctx: Secp256k1<crate::SignOnlyPreallocated> = panic!("cannot deserialize key pair without a context (please enable either the global-context or alloc feature)");
 
                 #[allow(clippy::needless_borrow)]
                 KeyPair::from_seckey_slice(&ctx, data)

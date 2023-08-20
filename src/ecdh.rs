@@ -110,7 +110,7 @@ impl AsRef<[u8]> for SharedSecret {
 ///
 /// # Examples
 /// ```
-/// # #[cfg(all(feature = "groestlcoin-hashes-std", feature = "rand-std"))] {
+/// # #[cfg(all(feature = "hashes-std", feature = "rand-std"))] {
 /// # use secp256k1_grs::{ecdh, rand, Secp256k1, PublicKey, SecretKey};
 /// # use secp256k1_grs::hashes::{Hash, sha512};
 ///
@@ -225,9 +225,9 @@ mod tests {
 
     #[test]
     #[cfg(not(secp256k1_fuzz))]
-    #[cfg(all(feature = "groestlcoin-hashes-std", feature = "rand-std"))]
-    fn groestlcoin_hashes_and_sys_generate_same_secret() {
-        use groestlcoin_hashes::{sha256, Hash, HashEngine};
+    #[cfg(all(feature = "hashes-std", feature = "rand-std"))]
+    fn hashes_and_sys_generate_same_secret() {
+        use hashes::{sha256, Hash, HashEngine};
 
         use crate::ecdh::shared_secret_point;
 
